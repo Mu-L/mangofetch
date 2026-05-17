@@ -22,7 +22,6 @@
 <p align="center">
   <img src="docs/assets/shot.png" alt="MangoFetch in action" width="1080" />
 </p>
-
 ___
 
 <!--toc:start-->
@@ -204,7 +203,6 @@ For a full list of commands and how to use the TUI, check out our **[Official Wi
 
 ---
 
-
 ## Roadmap & Milestones
 
 | Version    | Status | Milestone                                                  |
@@ -218,8 +216,6 @@ For a full list of commands and how to use the TUI, check out our **[Official Wi
 | **v0.5.3** | ✅     | **Performance & Security:** Async ops, security fixes       |
 | **v0.5.4** | ✅     | **Code Health:** Refactoring and test coverage             |
 | **v0.5.5** | ✅     | **TUI UX:** Animations toggle, double-q quit, keybindings  |
-| **v0.6.0** | ⏳     | Plugins and extra community sites                          |
-| **v0.7.0** | ⏳     | Better P2P and torrent support                             |
 
 ---
 
