@@ -48,6 +48,7 @@ pub struct MangoFetchApp {
     
     // Telemetry
     sys: sysinfo::System,
+    last_sys_refresh: std::time::Instant,
 }
 
 impl MangoFetchApp {
@@ -77,6 +78,7 @@ impl MangoFetchApp {
             concurrent_limit: 3,
             auto_retry: true,
             sys,
+            last_sys_refresh: std::time::Instant::now(),
         };
 
         // Trigger initial core checks
@@ -650,103 +652,122 @@ impl eframe::App for MangoFetchApp {
         // 1. Drain pending core events
         self.drain_events();
 
-        // Refresh system metrics occasionally
-        self.sys.refresh_cpu();
-        self.sys.refresh_memory();
+        // Refresh system metrics every 2 seconds (not every frame)
+        if self.last_sys_refresh.elapsed() >= std::time::Duration::from_secs(2) {
+            self.sys.refresh_cpu();
+            self.sys.refresh_memory();
+            self.last_sys_refresh = std::time::Instant::now();
+        }
 
-        // 2. Render Top Command Bar
-        egui::TopBottomPanel::top("top_bar")
-            .frame(Frame::NONE.fill(Color32::from_rgb(0x0c, 0x0e, 0x12))) // SURFACE_1
+        // Separator painter — draws crisp 1px chrome borders between panels (native desktop feel)
+        let sep_color = Color32::from_rgba_unmultiplied(255, 255, 255, 18);
+        let sep_stroke = Stroke::new(1.0, sep_color);
+        let sep = ctx.layer_painter(egui::LayerId::new(
+            egui::Order::Foreground,
+            egui::Id::new("panel_separators"),
+        ));
+
+        // 2. Top Toolbar — fixed 36px, deepest chrome tone
+        let top = egui::TopBottomPanel::top("top_bar")
+            .exact_height(36.0)
+            .frame(Frame::NONE.fill(Color32::from_rgb(0x08, 0x09, 0x0e)))
             .show(ctx, |ui| {
-                ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    ui.add_space(12.0);
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    ui.add_space(14.0);
                     ui.label(
-                        RichText::new("MANGOFETCH TERMINAL STATION")
-                            .font(FontId::new(10.5, FontFamily::Monospace))
-                            .color(Color32::from_rgb(0x6b, 0x72, 0x80))
+                        RichText::new("🥭  MANGOFETCH")
+                            .font(FontId::new(11.0, FontFamily::Monospace))
+                            .color(Color32::from_rgb(0x4a, 0x54, 0x68)),
                     );
-
                     ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.add_space(12.0);
-                        // Status connection dot
+                        ui.add_space(14.0);
                         status_dot(ui, "Online");
-                        ui.label(RichText::new("CONNECTED").font(FontId::new(10.5, FontFamily::Monospace)).color(Color32::from_rgb(0x34, 0xa8, 0x53)));
-                        
-                        ui.separator();
-                        
-                        let active_cnt = self.items.iter().filter(|i| i.status == "Active").count();
-                        ui.label(format!("ACTIVE DOWNLOADS: {}", active_cnt));
-                    });
-                });
-                ui.add_space(4.0);
-            });
-
-        // 3. Render Left Sidebar Navigation (Orbital Layout)
-        egui::SidePanel::left("left_sidebar")
-            .frame(Frame::NONE.fill(Color32::from_rgb(0x0c, 0x0e, 0x12))) // SURFACE_1
-            .exact_width(180.0)
-            .show(ctx, |ui| {
-                self.render_sidebar(ui);
-            });
-
-        // 4. Render Bottom telemetry status bar
-        egui::TopBottomPanel::bottom("bottom_bar")
-            .frame(Frame::NONE.fill(Color32::from_rgb(0x0c, 0x0e, 0x12))) // SURFACE_1
-            .show(ctx, |ui| {
-                ui.add_space(4.0);
-                ui.horizontal(|ui| {
-                    ui.add_space(12.0);
-                    
-                    // CPU and Memory Telemetry
-                    let cpu_usage = self.sys.global_cpu_info().cpu_usage();
-                    let total_mem = self.sys.total_memory() / 1_048_576; // MB
-                    let used_mem = self.sys.used_memory() / 1_048_576; // MB
-                    
-                    ui.label(
-                        RichText::new(format!("CPU: {:.1}% | MEM: {}/{} MB", cpu_usage, used_mem, total_mem))
-                            .font(FontId::new(10.0, FontFamily::Monospace))
-                            .color(Color32::from_rgb(0x9c, 0xa3, 0xaf))
-                    );
-
-                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                        ui.add_space(12.0);
-                        let build_lbl = format!("v0.5.5 | PRESET: {}", self.theme.name().to_uppercase());
                         ui.label(
-                            RichText::new(build_lbl)
-                                .font(FontId::new(10.0, FontFamily::Monospace))
-                                .color(Color32::from_rgb(0x6b, 0x72, 0x80))
+                            RichText::new("CONNECTED")
+                                .font(FontId::new(10.5, FontFamily::Monospace))
+                                .color(Color32::from_rgb(0x34, 0xa8, 0x53)),
+                        );
+                        ui.add_space(6.0);
+                        ui.label(
+                            RichText::new("│")
+                                .color(Color32::from_rgba_unmultiplied(255, 255, 255, 18)),
+                        );
+                        ui.add_space(6.0);
+                        let active_cnt = self.items.iter().filter(|i| i.status == "Active").count();
+                        ui.label(
+                            RichText::new(format!("{} ACTIVE", active_cnt))
+                                .font(FontId::new(10.5, FontFamily::Monospace))
+                                .color(Color32::from_rgb(0x55, 0x5f, 0x72)),
                         );
                     });
                 });
-                ui.add_space(4.0);
             });
+        // 1px border beneath toolbar
+        sep.hline(
+            top.response.rect.left()..=top.response.rect.right(),
+            top.response.rect.bottom(),
+            sep_stroke,
+        );
 
-        // 5. Render Central Content panel with Dot Background Grid
-        egui::CentralPanel::default()
-            .frame(Frame::NONE.fill(Color32::from_rgb(0x06, 0x06, 0x08))) // SURFACE_0
+        // 3. Bottom Status Bar — fixed 26px, same deep chrome tone
+        let bottom = egui::TopBottomPanel::bottom("bottom_bar")
+            .exact_height(26.0)
+            .frame(Frame::NONE.fill(Color32::from_rgb(0x07, 0x08, 0x0c)))
             .show(ctx, |ui| {
-                // Background Dot Grid painting
-                let painter = ui.painter();
-                let rect = ui.max_rect();
-                let dot_color = Color32::from_rgba_unmultiplied(255, 255, 255, 10); // ~4% opacity
-                
-                let start_x = (rect.min.x / 20.0).floor() * 20.0;
-                let start_y = (rect.min.y / 20.0).floor() * 20.0;
-                
-                let mut x = start_x;
-                while x < rect.max.x {
-                    let mut y = start_y;
-                    while y < rect.max.y {
-                        painter.circle_filled(egui::pos2(x, y), 0.75, dot_color);
-                        y += 20.0;
-                    }
-                    x += 20.0;
-                }
+                ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
+                    ui.add_space(14.0);
+                    let cpu_usage = self.sys.global_cpu_info().cpu_usage();
+                    let total_mem = self.sys.total_memory() / 1_048_576;
+                    let used_mem = self.sys.used_memory() / 1_048_576;
+                    ui.label(
+                        RichText::new(format!(
+                            "CPU {:.1}%   MEM {}/{} MB",
+                            cpu_usage, used_mem, total_mem
+                        ))
+                        .font(FontId::new(10.0, FontFamily::Monospace))
+                        .color(Color32::from_rgb(0x3c, 0x44, 0x54)),
+                    );
+                    ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
+                        ui.add_space(14.0);
+                        ui.label(
+                            RichText::new(format!(
+                                "{}  ·  v0.5.5",
+                                self.theme.name().to_uppercase()
+                            ))
+                            .font(FontId::new(10.0, FontFamily::Monospace))
+                            .color(Color32::from_rgb(0x3c, 0x44, 0x54)),
+                        );
+                    });
+                });
+            });
+        // 1px border above status bar
+        sep.hline(
+            bottom.response.rect.left()..=bottom.response.rect.right(),
+            bottom.response.rect.top(),
+            sep_stroke,
+        );
 
-                // Inner contents container with standard margin
+        // 4. Left Sidebar — slightly lighter than toolbar chrome, clean nav panel
+        let sidebar = egui::SidePanel::left("left_sidebar")
+            .exact_width(210.0)
+            .frame(Frame::NONE.fill(Color32::from_rgb(0x0a, 0x0c, 0x11)))
+            .show(ctx, |ui| {
+                self.render_sidebar(ui);
+            });
+        // 1px border on the right edge of sidebar
+        sep.vline(
+            sidebar.response.rect.right(),
+            sidebar.response.rect.top()..=sidebar.response.rect.bottom(),
+            sep_stroke,
+        );
+
+        // 5. Central Content Panel — clean surface, no decorative pattern
+        // Slightly warmer/lighter than chrome to visually anchor content
+        egui::CentralPanel::default()
+            .frame(Frame::NONE.fill(Color32::from_rgb(0x0f, 0x12, 0x1a)))
+            .show(ctx, |ui| {
                 Frame::NONE
-                    .inner_margin(Margin::same(16))
+                    .inner_margin(Margin::same(20))
                     .show(ui, |ui| {
                         match self.current_tab {
                             Tab::Home => self.draw_home_tab(ui),
@@ -758,7 +779,7 @@ impl eframe::App for MangoFetchApp {
                     });
             });
 
-        // Loop redraw every 250ms for telemetry and queue updates
+        // Repaint every 250ms for telemetry and queue state
         ctx.request_repaint_after(std::time::Duration::from_millis(250));
     }
 }
