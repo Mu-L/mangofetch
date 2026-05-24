@@ -7,9 +7,8 @@ use crate::models::media::{DownloadOptions, DownloadResult, MediaInfo, MediaType
 use crate::platforms::traits::PlatformDownloader;
 
 const GQL_URL: &str = "https://gql.twitch.tv/gql";
-const CLIENT_ID: &str = "kimne78kx3ncx6brgo4mv6wki5h1ko";
-const TOKEN_HASH: &str = "36b89d2507fce29e5ca551df756d27c1cfe079e2609642b4390aa4c35796eb11";
 
+#[derive(Debug)]
 struct ClipMetadata {
     title: String,
     duration_seconds: f64,
@@ -18,11 +17,13 @@ struct ClipMetadata {
     video_qualities: Vec<ClipQuality>,
 }
 
+#[derive(Debug)]
 struct ClipQuality {
     quality: String,
     source_url: String,
 }
 
+#[derive(Debug)]
 struct AccessToken {
     signature: String,
     value: String,
@@ -121,7 +122,11 @@ impl TwitchClipsDownloader {
     }
 
     async fn fetch_clip_metadata(&self, slug: &str) -> anyhow::Result<ClipMetadata> {
+        let client_id = std::env::var("TWITCH_CLIENT_ID")
+            .map_err(|_| anyhow!("Missing TWITCH_CLIENT_ID environment variable"))?;
+
         let query = format!(
+
             r#"{{ clip(slug: "{}") {{ broadcaster {{ login }} curator {{ login }} durationSeconds id medium: thumbnailURL(width: 480, height: 272) title videoQualities {{ quality sourceURL }} }} }}"#,
             slug
         );
@@ -131,7 +136,7 @@ impl TwitchClipsDownloader {
         let response = self
             .client
             .post(GQL_URL)
-            .header("client-id", CLIENT_ID)
+            .header("client-id", &client_id)
             .json(&body)
             .send()
             .await?;
@@ -198,21 +203,27 @@ impl TwitchClipsDownloader {
     }
 
     async fn fetch_access_token(&self, slug: &str) -> anyhow::Result<AccessToken> {
+        let client_id = std::env::var("TWITCH_CLIENT_ID")
+            .map_err(|_| anyhow!("Missing TWITCH_CLIENT_ID environment variable"))?;
+        let token_hash = std::env::var("TWITCH_TOKEN_HASH")
+            .map_err(|_| anyhow!("Missing TWITCH_TOKEN_HASH environment variable"))?;
+
         let body = serde_json::json!([{
             "operationName": "VideoAccessToken_Clip",
             "variables": { "slug": slug },
             "extensions": {
                 "persistedQuery": {
                     "version": 1,
-                    "sha256Hash": TOKEN_HASH
+                    "sha256Hash": token_hash
                 }
             }
         }]);
 
+
         let response = self
             .client
             .post(GQL_URL)
-            .header("client-id", CLIENT_ID)
+            .header("client-id", &client_id)
             .json(&body)
             .send()
             .await?;
@@ -357,5 +368,52 @@ impl PlatformDownloader for TwitchClipsDownloader {
             duration_seconds: info.duration_seconds.unwrap_or(0.0),
             torrent_id: None,
         })
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Mutex;
+    use std::sync::LazyLock;
+
+    static TEST_MUTEX: LazyLock<Mutex<()>> = LazyLock::new(|| Mutex::new(()));
+
+    #[tokio::test]
+    async fn test_fetch_clip_metadata_missing_env_vars() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+
+        // Ensure env vars are unset
+        std::env::remove_var("TWITCH_CLIENT_ID");
+        std::env::remove_var("TWITCH_TOKEN_HASH");
+
+        let downloader = TwitchClipsDownloader::new();
+        let result = downloader.fetch_clip_metadata("some_slug").await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Missing TWITCH_CLIENT_ID environment variable");
+    }
+
+    #[tokio::test]
+    async fn test_fetch_access_token_missing_env_vars() {
+        let _guard = TEST_MUTEX.lock().unwrap();
+
+        // Ensure env vars are unset
+        std::env::remove_var("TWITCH_CLIENT_ID");
+        std::env::remove_var("TWITCH_TOKEN_HASH");
+
+        let downloader = TwitchClipsDownloader::new();
+        let result = downloader.fetch_access_token("some_slug").await;
+
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Missing TWITCH_CLIENT_ID environment variable");
+
+        std::env::set_var("TWITCH_CLIENT_ID", "dummy");
+        let result = downloader.fetch_access_token("some_slug").await;
+        assert!(result.is_err());
+        assert_eq!(result.unwrap_err().to_string(), "Missing TWITCH_TOKEN_HASH environment variable");
+
+        // Clean up
+        std::env::remove_var("TWITCH_CLIENT_ID");
     }
 }
