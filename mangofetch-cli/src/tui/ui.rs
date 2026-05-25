@@ -1813,7 +1813,7 @@ fn render_dense_statusbar(f: &mut Frame, app: &App, area: Rect) {
                 ]
             }
             "tab" => vec![Span::styled(
-                app.active_tab.label(false).trim().to_uppercase(),
+                app.active_tab.label(nf).trim().to_uppercase(),
                 Style::new().fg(t.background).bold(),
             )],
             "time" => vec![Span::styled(
