@@ -379,7 +379,11 @@ async fn main() -> Result<()> {
             println!("{}", format_queue_list(display_items, &theme));
         }
 
-        Commands::Clean { finished, failed, logs } => {
+        Commands::Clean {
+            finished,
+            failed,
+            logs,
+        } => {
             if logs {
                 match mangofetch_core::core::logger::clean_logs() {
                     Ok(count) => {
@@ -678,13 +682,13 @@ async fn perform_download(
         match &media_info {
             Ok(info) => {
                 println!(
-                    "\n{margin}{info}PREVIEW{reset}  {accent}READY TO DOWNLOAD{reset}\n{margin}{bar}",
-                    margin = "  ",
-                    info = theme.color_info(),
-                    accent = theme.color_accent(),
-                    reset = theme.color_reset(),
-                    bar = "—".repeat(50),
-                );
+                                    "\n{margin}{info}Preview{reset}  {accent}Ready to download{reset}\n{margin}{bar}",
+                                    margin = "  ",
+                                    info = theme.color_info(),
+                                    accent = theme.color_accent(),
+                                    reset = theme.color_reset(),
+                                    bar = "—".repeat(50),
+                                );
                 println!("  TITLE:    {}", info.title);
                 println!("  PLATFORM: {}", platform_name);
                 if !info.author.is_empty() && info.author != "unknown" {
