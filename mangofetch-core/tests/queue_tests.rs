@@ -86,6 +86,7 @@ fn test_queue_lifecycle() {
         None,
         None,
         None,
+        None,
         downloader.clone(),
         None,
         false,

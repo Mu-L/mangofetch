@@ -1,3 +1,4 @@
+
 <table border="0">
   <tr>
     <td width="200" align="center" valign="top">
@@ -21,37 +22,39 @@
 ---
 
 <p align="center">
-  <img src="docs/assets/shot.png" alt="MangoFetch in action" width="1080" />
+  <img src="docs/assets/shot.png" alt="MangoFetch in action"  />
 </p>
 
 ___
 
 <!--toc:start-->
-- [mangofetch](#mangofetch)
-  - [Overview](#overview)
-  - [Using as a Rust SDK (mangofetch-core)](#using-as-a-rust-sdk-mangofetch-core)
-  - [CLI/TUI Installation](#clitui-installation)
-  - [Technical Architecture](#technical-architecture)
-  - [The Core Engine Lifecycle](#the-core-engine-lifecycle)
-  - [Command Reference](#command-reference)
-  - [Roadmap & Milestones](#roadmap--milestones)
-  - [Acknowledgments](#acknowledgments)
-  - [Contributing](#contributing)
-  - [License](#license)
+- [Overview](#overview)
+- [Using as a Rust Library (mangofetch-core)](#using-as-a-rust-library-mangofetch-core)
+- [CLI/TUI Installation](#clitui-installation)
+  - [Via Cargo (Recommended)](#via-cargo-recommended)
+  - [From Source](#from-source)
+  - [Run](#run)
+- [Technical Architecture](#technical-architecture)
+  - [Core Components](#core-components)
+- [How the Engine Works](#how-the-engine-works)
+  - [Key Features under the hood](#key-features-under-the-hood)
+- [Command Reference](#command-reference)
+- [Acknowledgments](#acknowledgments)
+- [Contributing](#contributing)
+- [License](#license)
 <!--toc:end-->
 
 ## Overview
 
 **MangoFetch** is a fast and simple media downloader built in Rust. It's designed to be powerful but easy to use, keeping the heavy lifting of downloading away from the interface you're using.
-
 At its heart is **`mangofetch-core`**, a lightweight and **headless engine**. Built on **Tokio** and **Reqwest**, it uses a simple API with Rust Traits to handle YouTube, Torrents (Magnet), SoundCloud, Instagram, and over 1000+ other platforms thanks to `yt-dlp` and `ffmpeg`.
 
-For everyone else, MangoFetch comes with **`mangofetch-cli`**. It's a handy **TUI (Terminal User Interface)** that looks great and works even better, featuring easy settings, mouse support, and 11 fun Tropical Fruit color palettes to choose from.
+For everyone else, MangoFetch comes with **`mangofetch`**. It's a handy **TUI (Terminal User Interface)** that looks great and works even better, featuring easy settings, mouse support, and 11 fun Tropical Fruit color palettes to choose from.
 
 ___
 
 <p align="center">
-  <img src="docs/assets/mangofetch_demo.webp" alt="MangoFetch demo" width="680" />
+  <img src="docs/assets/mangofetch_demo.webp" alt="MangoFetch demo" />
 </p>
 
 ---
@@ -63,7 +66,7 @@ Unlike big, clunky GUI downloaders, **MangoFetch is built to be part of your pro
 Add it to your `Cargo.toml`:
 ```toml
 [dependencies]
-mangofetch-core = { git = "https://github.com/julesklord/mangofetch-cli" }
+mangofetch-core = { git = "https://github.com/julesklord/mangofetch" }
 ```
 
 **Why use `mangofetch-core`?**
@@ -81,7 +84,7 @@ mangofetch-core = { git = "https://github.com/julesklord/mangofetch-cli" }
 The fastest way to install the CLI directly to your system path:
 
 ```zsh
-cargo install mangofetch-cli
+cargo install mangofetch
 ```
 
 ### From Source
@@ -89,8 +92,8 @@ cargo install mangofetch-cli
 For developers who want the absolute bleeding edge:
 
 ```zsh
-git clone https://github.com/julesklord/mangofetch-cli.git
-cd mangofetch-cli
+git clone https://github.com/julesklord/mangofetch.git
+cd mangofetch
 cargo build --release
 # The compiled binary will be available at: target/release/mangofetch
 ```
@@ -105,7 +108,6 @@ mangofetch tui (run the tui interactive dashboard)
 ```
 
 ---
-
 
 ## Technical Architecture
 
@@ -140,7 +142,7 @@ graph TD
 ### Core Components
 
 - **`mangofetch-core`**: The heart of the system. It handles the download queue and works with sites like YouTube, Instagram, and TikTok. It also manages `yt-dlp` and `ffmpeg` for you, even downloading them if they aren't on your system.
-- **`mangofetch-cli`**: A simple frontend built with `clap` and `ratatui`. It's fast, looks great, and shows you everything that's happening in real-time.
+- **`mangofetch`**: A simple frontend built with `clap` and `ratatui`. It's fast, looks great, and shows you everything that's happening in real-time.
 - **`mangofetch-plugin-sdk`**: A toolkit for adding new features to MangoFetch while it's running.
 
 ---
@@ -195,29 +197,13 @@ For a full list of commands and how to use the TUI, check out our **[Official Wi
 | `mangofetch download <url>`           | `mango d <url>`          | Just download a single link.                            |
 | `mangofetch download-multiple <file>` | `mango dm <file>`        | Download a whole bunch of links from a file.            |
 | `mangofetch info <url>`               | `mango i <url>`          | See info about a link without downloading it.           |
-| `mangofetch list`                     | `mango ls`               | See what's currently in your queue.                      |
+| `mangofetch list`                     | `mango ls`               | See what's currently in your queue.                     |
 | `mangofetch clean`                    | `mango c`                | Clear your history and cache.                           |
 | `mangofetch config`                   | `mango cfg`              | Change settings like limits and paths.                  |
 | `mangofetch check`                    | `mango ch`               | Check if your tools are working correctly.              |
 | `mangofetch update`                   | `mango up`               | Update the external tools to their latest versions.     |
 | `mangofetch logs`                     | `mango log`              | View app logs if you're curious or debugging.           |
 | `mangofetch about`                    | `mango a`                | Show version and license info.                          |
-
----
-
-## Roadmap & Milestones
-
-| Version    | Status | Milestone                                                  |
-| ---------- | ------ | ---------------------------------------------------------- |
-| **v0.1.0** | ✅     | First version with basic downloading                       |
-| **v0.2.0** | ✅     | Cleaned up the code and made the engine faster             |
-| **v0.3.1** | ✅     | New name, better tests, and more docs                      |
-| **v0.4.0** | ✅     | **The TUI Release:** A cool new terminal interface         |
-| **v0.5.1** | ✅     | **UX & Polish:** Tropical themes and mouse support         |
-| **v0.5.2** | ✅     | **Maintenance:** Relaxed tone, security fixes, and cleanup |
-| **v0.5.3** | ✅     | **Performance & Security:** Async ops, security fixes       |
-| **v0.5.4** | ✅     | **Code Health:** Refactoring and test coverage             |
-| **v0.5.5** | ✅     | **TUI UX:** Animations toggle, double-q quit, keybindings  |
 
 ---
 

@@ -6,11 +6,11 @@ use egui::{Color32, Stroke};
 /// Presets de brand (colores primarios)
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum BrandPreset {
-    PlasmCore,       // Cyan #22d3ee + Violet #a855f7
-    OxidizedGold,    // Amber #f59e0b
-    VioletReaction,  // Purple #a855f7 + Crimson #e11d48
-    CoolantLiquid,   // Cyan #06b6d4 + Teal #2dd4bf
-    CriticalMass,    // Scarlet #ef4444 + Dark Red #991b1b
+    PlasmCore,      // Cyan #22d3ee + Violet #a855f7
+    OxidizedGold,   // Amber #f59e0b
+    VioletReaction, // Purple #a855f7 + Crimson #e11d48
+    CoolantLiquid,  // Cyan #06b6d4 + Teal #2dd4bf
+    CriticalMass,   // Scarlet #ef4444 + Dark Red #991b1b
 }
 
 impl BrandPreset {
@@ -66,13 +66,13 @@ pub fn with_alpha(color: Color32, alpha: f32) -> Color32 {
 /// Colores de la rampa de superficies de MonolithUI
 pub struct MonolithSurfaces;
 impl MonolithSurfaces {
-    pub const SURFACE_0: Color32 = Color32::from_rgb(0x06, 0x06, 0x08); // deepest
-    pub const SURFACE_1: Color32 = Color32::from_rgb(0x0c, 0x0e, 0x12); // sidebar, side-nav
-    pub const SURFACE_2: Color32 = Color32::from_rgb(0x13, 0x17, 0x20); // panels
-    pub const SURFACE_3: Color32 = Color32::from_rgb(0x1c, 0x21, 0x30); // root canvas
-    pub const SURFACE_4: Color32 = Color32::from_rgb(0x25, 0x2a, 0x3a); // cards, controls
-    pub const SURFACE_5: Color32 = Color32::from_rgb(0x2e, 0x34, 0x45); // hover states
-    pub const SURFACE_6: Color32 = Color32::from_rgb(0x3a, 0x40, 0x55); // active hover
+    pub const SURFACE_0: Color32 = Color32::from_rgb(0x08, 0x08, 0x08); // deepest
+    pub const SURFACE_1: Color32 = Color32::from_rgb(0x10, 0x10, 0x10); // sidebar, side-nav
+    pub const SURFACE_2: Color32 = Color32::from_rgb(0x18, 0x18, 0x18); // panels
+    pub const SURFACE_3: Color32 = Color32::from_rgb(0x24, 0x24, 0x24); // root canvas
+    pub const SURFACE_4: Color32 = Color32::from_rgb(0x2E, 0x2E, 0x2E); // cards, controls
+    pub const SURFACE_5: Color32 = Color32::from_rgb(0x38, 0x38, 0x38); // hover states
+    pub const SURFACE_6: Color32 = Color32::from_rgb(0x44, 0x44, 0x44); // active hover
 }
 
 /// Aplica el tema dark de MonolithUI al contexto egui
@@ -118,19 +118,25 @@ pub fn load_fonts(ctx: &egui::Context) {
     // Cargar Outfit-Regular
     fonts.font_data.insert(
         "outfit_regular".to_owned(),
-        std::sync::Arc::new(egui::FontData::from_owned(include_bytes!("../assets/Outfit-Regular.ttf").to_vec())),
+        std::sync::Arc::new(egui::FontData::from_owned(
+            include_bytes!("../assets/Outfit-Regular.ttf").to_vec(),
+        )),
     );
 
     // Cargar Outfit-Bold
     fonts.font_data.insert(
         "outfit_bold".to_owned(),
-        std::sync::Arc::new(egui::FontData::from_owned(include_bytes!("../assets/Outfit-Bold.ttf").to_vec())),
+        std::sync::Arc::new(egui::FontData::from_owned(
+            include_bytes!("../assets/Outfit-Bold.ttf").to_vec(),
+        )),
     );
 
     // Cargar DM Mono
     fonts.font_data.insert(
         "dm_mono".to_owned(),
-        std::sync::Arc::new(egui::FontData::from_owned(include_bytes!("../assets/DMMono-Regular.ttf").to_vec())),
+        std::sync::Arc::new(egui::FontData::from_owned(
+            include_bytes!("../assets/DMMono-Regular.ttf").to_vec(),
+        )),
     );
 
     // Configurar Outfit como la fuente proporcional por defecto
@@ -150,4 +156,3 @@ pub fn load_fonts(ctx: &egui::Context) {
     ctx.set_fonts(fonts);
     tracing::debug!("MonolithUI custom fonts (Outfit & DM Mono) loaded successfully");
 }
-

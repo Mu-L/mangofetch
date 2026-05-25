@@ -23,6 +23,8 @@ fn main() -> Result<(), eframe::Error> {
         "MangoFetch",
         options,
         Box::new(move |cc| {
+            // Install image loaders
+            egui_extras::install_image_loaders(&cc.egui_ctx);
             // Cargar fuentes personalizadas (Outfit + DM Mono) antes del renderizado
             mangofetch_gui::theme::load_fonts(&cc.egui_ctx);
             // Aplicar el tema oscuro de la estación industrial de MonolithUI
