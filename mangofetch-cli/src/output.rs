@@ -410,13 +410,13 @@ mod tests {
             &theme,
         );
 
-        assert!(output.contains("INFO"));
-        assert!(output.contains("MEDIA DETAIL"));
-        assert!(output.contains("TITLE:     Test Title"));
-        assert!(output.contains("AUTHOR:    Test Author"));
-        assert!(output.contains("PLATFORM:"));
+        assert!(output.contains("Info"));
+        assert!(output.contains("Media detail"));
+        assert!(output.contains("Title:     Test Title"));
+        assert!(output.contains("Author:    Test Author"));
+        assert!(output.contains("Platform:"));
         assert!(output.contains("YouTube"));
-        assert!(output.contains("DURATION:  2m 5s"));
+        assert!(output.contains("Duration:  2m 5s"));
         assert!(output.contains(MARGIN));
     }
 
@@ -425,7 +425,7 @@ mod tests {
         let theme = get_theme();
         let output = format_queue_list(vec![], &theme);
 
-        assert!(output.contains("QUEUE"));
+        assert!(output.contains("Queue"));
         assert!(output.contains("No downloads found"));
         assert!(output.contains(MARGIN));
     }
@@ -451,14 +451,14 @@ mod tests {
         ];
         let output = format_queue_list(items, &theme);
 
-        assert!(output.contains("QUEUE"));
-        assert!(output.contains("STATUS (Total: 2)"));
+        assert!(output.contains("Queue"));
+        assert!(output.contains("Status (Total: 2)"));
         assert!(output.contains("#1"));
         assert!(output.contains("Title 1"));
-        assert!(output.contains("ACTIVE"));
+        assert!(output.contains("Active"));
         assert!(output.contains("==> 50%"));
         assert!(output.contains("#2"));
-        assert!(output.contains("QUEUED"));
+        assert!(output.contains("Queued"));
         assert!(output.contains(MARGIN));
     }
 
@@ -468,14 +468,14 @@ mod tests {
 
         // Success case
         let output_ok = format_dependency_check(Some("/path/ytdlp"), Some("/path/ffmpeg"), &theme);
-        assert!(output_ok.contains("CHECK"));
-        assert!(output_ok.contains("SYSTEM READINESS"));
+        assert!(output_ok.contains("Check"));
+        assert!(output_ok.contains("System readiness"));
         assert!(output_ok.contains("OK  yt-dlp"));
         assert!(output_ok.contains("OK  FFmpeg"));
 
         // Missing case
         let output_missing = format_dependency_check(None, None, &theme);
-        assert!(output_missing.contains("NOT FOUND"));
+        assert!(output_missing.contains("Not found"));
         assert!(output_missing.contains("will auto-install"));
     }
 
@@ -484,7 +484,7 @@ mod tests {
         let theme = get_theme();
 
         let output_single = format_clean_summary(1, Some(1024), &theme);
-        assert!(output_single.contains("CLEAN"));
+        assert!(output_single.contains("Clean"));
         assert!(output_single.contains("1 item removed"));
         assert!(output_single.contains("1.0 KB"));
 
@@ -499,14 +499,14 @@ mod tests {
 
         // Success only
         let output_ok = format_batch_summary(10, 10, 0, &theme);
-        assert!(output_ok.contains("BATCH"));
-        assert!(output_ok.contains("DOWNLOAD SUMMARY"));
-        assert!(output_ok.contains("TOTAL:   10"));
-        assert!(output_ok.contains("QUEUED:  10"));
-        assert!(output_ok.contains("FAILURES: None"));
+        assert!(output_ok.contains("Batch"));
+        assert!(output_ok.contains("Download summary"));
+        assert!(output_ok.contains("Total:   10"));
+        assert!(output_ok.contains("Queued:  10"));
+        assert!(output_ok.contains("Failures: None"));
 
         // With failures
         let output_fail = format_batch_summary(10, 7, 3, &theme);
-        assert!(output_fail.contains("FAILED:  3"));
+        assert!(output_fail.contains("Failed:  3"));
     }
 }
