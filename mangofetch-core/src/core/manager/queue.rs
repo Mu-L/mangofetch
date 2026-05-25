@@ -1076,7 +1076,7 @@ async fn spawn_download_inner(queue: Arc<tokio::sync::Mutex<DownloadQueue>>, ite
         tokio::select! {
             r = ctx.downloader.download(&info, &opts, tx) => r,
             _ = ctx.cancel_token.cancelled() => {
-                Err(anyhow::anyhow!("Download cancelado"))
+                Err(anyhow::anyhow!("Download cancelled"))
             }
         }
     };
