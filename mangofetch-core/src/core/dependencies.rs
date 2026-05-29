@@ -49,6 +49,17 @@ pub async fn ensure_dependencies(
     Ok(ResolvedDependencies { ytdlp, ffmpeg })
 }
 
+/// Return true when the runtime is expected to avoid network auto-downloads.
+/// This is driven by the MANGOFETCH_OFFLINE env var (set to "1" or "true").
+pub fn is_offline_mode() -> bool {
+    std::env::var("MANGOFETCH_OFFLINE")
+        .map(|v| {
+            let s = v.to_ascii_lowercase();
+            s == "1" || s == "true"
+        })
+        .unwrap_or(false)
+}
+
 use anyhow::anyhow;
 
 pub fn is_flatpak() -> bool {
@@ -282,6 +293,9 @@ pub async fn ensure_ffmpeg(
 async fn download_ffmpeg(
     _reporter: Option<&dyn crate::core::traits::DownloadReporter>,
 ) -> anyhow::Result<PathBuf> {
+    if is_offline_mode() {
+        return Err(anyhow!("Offline mode enabled: automatic FFmpeg download disabled"));
+    }
     let bin_dir = managed_bin_dir().ok_or_else(|| anyhow!("Could not determine data directory"))?;
     std::fs::create_dir_all(&bin_dir)?;
 

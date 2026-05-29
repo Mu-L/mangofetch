@@ -593,6 +593,10 @@ async fn download_ytdlp_binary(reporter: Option<&dyn DownloadReporter>) -> anyho
         "https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"
     };
 
+    if crate::core::dependencies::is_offline_mode() {
+        return Err(anyhow!("Offline mode enabled: automatic yt-dlp download disabled"));
+    }
+
     let bytes = crate::core::http_client::download_with_progress(download_url, |percent| {
         if let Some(r) = reporter {
             r.on_system_progress("yt-dlp", percent, "Downloading yt-dlp...");
