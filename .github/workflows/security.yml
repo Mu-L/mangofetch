@@ -17,7 +17,7 @@ jobs:
       - name: Install cargo-audit
         run: cargo install cargo-audit --locked || true
       - name: Run cargo-audit
-        run: cargo audit || true
+        run: cargo audit
 
   cargo-deny:
     name: cargo-deny
@@ -29,4 +29,4 @@ jobs:
       - name: Install cargo-deny
         run: cargo install cargo-deny --locked || true
       - name: Run cargo-deny
-        run: cargo deny check || true
+        run: cargo deny check
