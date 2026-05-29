@@ -116,6 +116,14 @@ cargo build --release
 mangofetch <command> <link>
 ```
 
+Testing note: to run tests and CI in an environment that avoids runtime network downloads of external tools (yt-dlp, ffmpeg, deno), set:
+
+```bash
+export MANGOFETCH_OFFLINE=1
+cargo test -p mangofetch-core
+```
+
+
 ```zsh
 mangofetch tui (run the tui interactive dashboard)
 ```
