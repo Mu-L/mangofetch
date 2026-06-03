@@ -27,12 +27,5 @@ MangoFetch is engineered for users who demand speed, flexibility, and a beautifu
 
 ---
 
-## 📸 Visual Preview
-
-> [!SCREENSHOT_PLACEHOLDER: TUI Home Screen with Mango Theme]
-> *Captura de la pantalla de inicio (Home) de la TUI mostrando el logo de Mango Fetch.*
-
----
-
 ## 🛡️ License
 MangoFetch is licensed under the **GPL-3.0-or-later**.
