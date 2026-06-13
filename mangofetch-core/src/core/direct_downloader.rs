@@ -268,7 +268,10 @@ async fn download_chunked(
         let hdrs = headers.clone();
 
         join_set.spawn(async move {
-            let _permit = sem.acquire().await.map_err(|e| anyhow!("Failed to acquire semaphore: {}", e))?;
+            let _permit = sem
+                .acquire()
+                .await
+                .map_err(|e| anyhow!("Failed to acquire semaphore: {}", e))?;
             if ct.is_cancelled() {
                 return Err(anyhow!("Download cancelled"));
             }

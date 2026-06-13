@@ -122,7 +122,6 @@ impl TwitchClipsDownloader {
             .map_err(|_| anyhow!("TWITCH_CLIENT_ID environment variable not set"))?;
 
         let query = format!(
-
             r#"{{ clip(slug: "{}") {{ broadcaster {{ login }} curator {{ login }} durationSeconds id medium: thumbnailURL(width: 480, height: 272) title videoQualities {{ quality sourceURL }} }} }}"#,
             slug
         );
@@ -369,7 +368,6 @@ impl PlatformDownloader for TwitchClipsDownloader {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -377,13 +375,20 @@ mod tests {
     #[test]
     fn test_extract_clip_slug() {
         assert_eq!(
-            TwitchClipsDownloader::extract_clip_slug("https://clips.twitch.tv/BlatantAbstemiousAlbatrossTheThing-zR3e2u0XW6eG-R9V"),
+            TwitchClipsDownloader::extract_clip_slug(
+                "https://clips.twitch.tv/BlatantAbstemiousAlbatrossTheThing-zR3e2u0XW6eG-R9V"
+            ),
             Some("BlatantAbstemiousAlbatrossTheThing-zR3e2u0XW6eG-R9V".to_string())
         );
         assert_eq!(
-            TwitchClipsDownloader::extract_clip_slug("https://www.twitch.tv/clip/BlatantAbstemiousAlbatrossTheThing-zR3e2u0XW6eG-R9V"),
+            TwitchClipsDownloader::extract_clip_slug(
+                "https://www.twitch.tv/clip/BlatantAbstemiousAlbatrossTheThing-zR3e2u0XW6eG-R9V"
+            ),
             Some("BlatantAbstemiousAlbatrossTheThing-zR3e2u0XW6eG-R9V".to_string())
         );
-        assert_eq!(TwitchClipsDownloader::extract_clip_slug("https://twitch.tv/notaclip"), None);
+        assert_eq!(
+            TwitchClipsDownloader::extract_clip_slug("https://twitch.tv/notaclip"),
+            None
+        );
     }
 }

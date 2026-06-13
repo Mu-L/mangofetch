@@ -1,8 +1,8 @@
 use anyhow::Result;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::path::PathBuf;
 use std::process::Stdio;
-use sha2::{Digest, Sha256};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ResolvedDependencies {
@@ -87,7 +87,9 @@ pub fn read_expected_hash(tool: &str) -> Option<String> {
     let file = data_dir.join("tool_hashes.json");
     let s = std::fs::read_to_string(&file).ok()?;
     let map: serde_json::Value = serde_json::from_str(&s).ok()?;
-    map.get(tool).and_then(|v| v.as_str()).map(|s| s.to_string())
+    map.get(tool)
+        .and_then(|v| v.as_str())
+        .map(|s| s.to_string())
 }
 
 use anyhow::anyhow;
@@ -324,7 +326,9 @@ async fn download_ffmpeg(
     _reporter: Option<&dyn crate::core::traits::DownloadReporter>,
 ) -> anyhow::Result<PathBuf> {
     if is_offline_mode() {
-        return Err(anyhow!("Offline mode enabled: automatic FFmpeg download disabled"));
+        return Err(anyhow!(
+            "Offline mode enabled: automatic FFmpeg download disabled"
+        ));
     }
     let bin_dir = managed_bin_dir().ok_or_else(|| anyhow!("Could not determine data directory"))?;
     std::fs::create_dir_all(&bin_dir)?;

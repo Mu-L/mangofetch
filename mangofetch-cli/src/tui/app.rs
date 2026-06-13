@@ -240,7 +240,9 @@ impl SettingKind {
         match self {
             SettingKind::TuiTheme => "Cycle through 11 tropical fruit themes",
             SettingKind::UseNerdFonts => "Enables icons (requires patched terminal)",
-            SettingKind::EnableAnimations => "Enables/disables subtle statusbar and splash animations",
+            SettingKind::EnableAnimations => {
+                "Enables/disables subtle statusbar and splash animations"
+            }
             SettingKind::NavigationLayout => "Switch between Sidebar and TopBar layout",
             SettingKind::MaxDownloads => "Max simultaneous downloads",
             SettingKind::VideoQuality => "best │ 1080p │ 720p │ 480p │ 360p",
@@ -919,21 +921,20 @@ impl App {
 
             // Filter per tab and category
             self.items = match self.active_tab {
-                Tab::Downloads => {
-                    all.into_iter()
-                        .filter(|i| match self.download_category {
-                            DownloadsCategory::All => true,
-                            DownloadsCategory::Active => matches!(i.status, QueueStatus::Active),
-                            DownloadsCategory::Queued => matches!(i.status, QueueStatus::Queued),
-                            DownloadsCategory::Completed => {
-                                matches!(i.status, QueueStatus::Complete { .. })
-                            }
-                            DownloadsCategory::Failed => {
-                                matches!(i.status, QueueStatus::Error { .. })
-                            }
-                        })
-                        .collect()
-                }
+                Tab::Downloads => all
+                    .into_iter()
+                    .filter(|i| match self.download_category {
+                        DownloadsCategory::All => true,
+                        DownloadsCategory::Active => matches!(i.status, QueueStatus::Active),
+                        DownloadsCategory::Queued => matches!(i.status, QueueStatus::Queued),
+                        DownloadsCategory::Completed => {
+                            matches!(i.status, QueueStatus::Complete { .. })
+                        }
+                        DownloadsCategory::Failed => {
+                            matches!(i.status, QueueStatus::Error { .. })
+                        }
+                    })
+                    .collect(),
                 _ => Vec::new(),
             };
         }

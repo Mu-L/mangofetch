@@ -1,7 +1,7 @@
 //! Custom reusable MonolithUI widgets for mangofetch-gui
 
-use egui::{Ui, Color32, Vec2, Stroke, Frame, Margin, CornerRadius, RichText, FontFamily, FontId};
 use crate::theme::{with_alpha, MonolithSurfaces};
+use egui::{Color32, CornerRadius, FontFamily, FontId, Frame, Margin, RichText, Stroke, Ui, Vec2};
 
 /// Renders a beautiful MonolithUI surface card with uniform padding and borders.
 pub fn surface_card<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R {
@@ -9,7 +9,7 @@ pub fn surface_card<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> 
     let fill_color = MonolithSurfaces::SURFACE_4;
     // --ui-surface-6 is border highlight (#3a4055)
     let stroke_color = MonolithSurfaces::SURFACE_6;
-    
+
     Frame::NONE
         .fill(fill_color)
         .inner_margin(Margin::same(14))
@@ -24,7 +24,7 @@ pub fn sunken_well<R>(ui: &mut Ui, add_contents: impl FnOnce(&mut Ui) -> R) -> R
     // Sunken wells are darker (#060608 / SURFACE_0)
     let fill_color = MonolithSurfaces::SURFACE_0;
     let border_color = MonolithSurfaces::SURFACE_3;
-    
+
     Frame::NONE
         .fill(fill_color)
         .inner_margin(Margin::same(12))
@@ -47,10 +47,10 @@ pub fn status_dot(ui: &mut Ui, status: &str) {
 
     let (rect, _response) = ui.allocate_exact_size(Vec2::new(14.0, 14.0), egui::Sense::hover());
     let painter = ui.painter();
-    
+
     // Draw the main circle
     painter.circle_filled(rect.center(), 4.0, color);
-    
+
     // Draw a tactile glow for Active states
     if status == "Active" || status == "Online" {
         painter.circle_filled(rect.center(), 6.5, with_alpha(color, 0.25));
@@ -68,7 +68,7 @@ pub fn brand_pill(ui: &mut Ui, text: &str, color: Color32) {
             ui.label(
                 RichText::new(text)
                     .color(color)
-                    .font(FontId::new(10.5, FontFamily::Monospace)) // --ui-text-xs
+                    .font(FontId::new(10.5, FontFamily::Monospace)), // --ui-text-xs
             );
         });
 }
@@ -83,7 +83,7 @@ pub fn platform_pill(ui: &mut Ui, platform: &str) {
         "torrent" => Color32::from_rgb(85, 255, 120),
         _ => Color32::from_rgb(168, 85, 247), // Default violet
     };
-    
+
     let glyph = match platform.to_lowercase().as_str() {
         "youtube" => "󰗃",
         "instagram" => "󰅟",
@@ -92,7 +92,7 @@ pub fn platform_pill(ui: &mut Ui, platform: &str) {
         "torrent" => "󰄗",
         _ => "󰈚",
     };
-    
+
     let text = format!("{}  {}", glyph, platform.to_uppercase());
     brand_pill(ui, &text, color);
 }
@@ -105,7 +105,7 @@ pub fn section_header(ui: &mut Ui, title: &str) {
             RichText::new(title)
                 .font(FontId::new(16.0, FontFamily::Proportional))
                 .strong()
-                .color(Color32::from_rgb(0xf3, 0xf4, 0xf6))
+                .color(Color32::from_rgb(0xf3, 0xf4, 0xf6)),
         );
         ui.add_space(6.0);
     });
