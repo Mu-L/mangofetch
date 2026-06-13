@@ -1,9 +1,9 @@
 [workspace]
 resolver = "2"
-members = ["mangofetch-core", "mangofetch-plugin-sdk", "mangofetch-cli", "mangofetch-gui"]
+members = ["mangofetch-core", "mangofetch-plugin-sdk", "mangofetch-tui"]
 
-# This makes 'cargo run' from root execute the CLI by default
-default-members = ["mangofetch-cli"]
+# This makes 'cargo run' from root execute the TUI by default
+default-members = ["mangofetch-tui"]
 
 [profile.dev]
 debug = 0

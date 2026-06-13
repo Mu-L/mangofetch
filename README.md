@@ -1,15 +1,14 @@
-
 <table border="0">
   <tr>
     <td width="200" align="center" valign="top">
       <img src="docs/assets/logo.svg" width="180" alt="MangoFetch logo">
     </td>
     <td valign="top">
-      <h1>mangofetch</h1>
+      <h1>mangofetch (TUI / Core)</h1>
       <p><strong>Fast, Tropical, Pure Rust.</strong><br/>
-      <em>Headless download engine SDK with GUI, TUI, and CLI frontends.</em></p>
+      <em>The core engine SDK and interactive Terminal User Interface (TUI) frontend of the mangoSuite.</em></p>
       <p>
-        <a href="https://crates.io/crates/mangofetch-cli"><img src="https://img.shields.io/crates/v/mangofetch-cli?style=plastic&color=orange" alt="Crates.io"></a>
+        <a href="https://crates.io/crates/mangofetch"><img src="https://img.shields.io/crates/v/mangofetch?style=plastic&color=orange" alt="Crates.io"></a>
         <a href="LICENSE"><img src="https://img.shields.io/badge/license-GPL--3.0-blue?style=plastic" alt="License GPL-3.0"></a>
         <img src="https://img.shields.io/badge/Built%20With-Rust-red?style=plastic&logo=rust" alt="Built with Rust">
         <img src="https://img.shields.io/badge/Architecture-Asynchronous-brightgreen?style=plastic" alt="Async">
@@ -29,16 +28,15 @@ ___
 
 <!--toc:start-->
 - [Overview](#overview)
+- [The mangoSuite](#the-mangosuite)
 - [Cross-Platform Compatibility](#cross-platform-compatibility)
 - [Using as a Rust Library (mangofetch-core)](#using-as-a-rust-library-mangofetch-core)
-- [Installation](#installation)
+- [TUI Installation & Run](#tui-installation--run)
   - [Via Cargo (Recommended)](#via-cargo-recommended)
   - [From Source](#from-source)
-  - [Run](#run)
+  - [Running the TUI](#running-the-tui)
 - [Technical Architecture](#technical-architecture)
-  - [Core Components](#core-components)
 - [How the Engine Works](#how-the-engine-works)
-  - [Key Features under the hood](#key-features-under-the-hood)
 - [Command Reference](#command-reference)
 - [Acknowledgments](#acknowledgments)
 - [Contributing](#contributing)
@@ -51,10 +49,17 @@ MangoFetch downloads media quickly across multiple platforms. It provides granul
 
 The **`mangofetch-core`** engine uses Tokio and Reqwest to handle YouTube, Torrents, SoundCloud, and Instagram. It wraps `yt-dlp` and `ffmpeg` to support over 1000 platforms.
 
-The suite includes three frontends:
-1. **`mangofetch-gui`**: A hardware-accelerated desktop application powered by `egui`. It uses the MonolithUI design system and provides persistent logs and telemetry.
-2. **`mangofetch tui`**: A terminal dashboard built with `ratatui`. It supports mouse interaction, modal dialogs, and multiple color palettes.
-3. **`mangofetch cli`**: A scriptable command-line interface for batch processing.
+This repository contains:
+1. **`mangofetch` (TUI)**: The interactive terminal frontend built with `ratatui`. Launches by default and supports mouse interaction, modal dialogs, and multiple color palettes.
+2. **`mangofetch-core`**: The headless download engine.
+3. **`mangofetch-plugin-sdk`**: The plugin SDK for extending the engine's capabilities.
+
+## The mangoSuite
+
+MangoFetch has been modularized into separate repositories for maximum flexibility:
+* **[mangofetch](https://github.com/julesklord/mangofetch)** (This repo): Core engine SDK and interactive Ratatui TUI.
+* **[mangofetch-cli](https://github.com/julesklord/mangofetch-cli)**: Scriptable, pure CLI frontend for headless execution and server batch jobs.
+* **[mangofetch-gui](https://github.com/julesklord/mangofetch-gui)**: Hardware-accelerated desktop GUI built with `egui` & `eframe`.
 
 ## Cross-Platform Compatibility
 
@@ -67,7 +72,7 @@ MangoFetch runs natively on multiple architectures and operating systems.
 ___
 
 <p align="center">
-  <img src="docs/assets/mangofetch_demo.webp" alt="MangoFetch demo" />
+  <img src="docs/assets/mangofetch_demo.webp" alt="MangoFetch TUI demo" />
 </p>
 
 ---
@@ -90,11 +95,11 @@ mangofetch-core = { git = "https://github.com/julesklord/mangofetch" }
 
 ---
 
-## CLI/TUI Installation
+## TUI Installation & Run
 
 ### Via Cargo (Recommended)
 
-Install the CLI to your system path:
+Install the TUI to your system path:
 
 ```zsh
 cargo install mangofetch
@@ -108,20 +113,22 @@ cd mangofetch
 cargo build --release
 ```
 
-### Run
+### Running the TUI
+
+Simply run the binary without any arguments to launch the interactive TUI directly:
+
 ```zsh
-mangofetch <command> <link>
+mangofetch
 ```
+
+> [!NOTE]
+> You can still pass traditional CLI commands to this binary (e.g., `mangofetch check`, `mangofetch info <url>`), but executing it empty launches the TUI immediately.
 
 Set `MANGOFETCH_OFFLINE=1` to run tests without downloading external tools:
 
 ```bash
 export MANGOFETCH_OFFLINE=1
 cargo test -p mangofetch-core
-```
-
-```zsh
-mangofetch tui
 ```
 
 ---
@@ -132,7 +139,7 @@ The modular design separates the core engine from the user interfaces.
 
 ```mermaid
 graph TD
-    User([Terminal / App User]) -->|CLI / Events| Frontend(CLI / Bot / Custom GUI)
+    User([Terminal / App User]) -->|CLI / Events| Frontend(mangofetch TUI)
 
     subgraph MangoFetch Workspace
         Frontend -->|Dispatch & Read MPSC| Core(mangofetch-core)
@@ -159,7 +166,7 @@ graph TD
 ### Core Components
 
 - **`mangofetch-core`**: Manages the download queue and platform extractors. It handles binary dependencies automatically.
-- **`mangofetch`**: A terminal frontend using `clap` and `ratatui`.
+- **`mangofetch` (TUI)**: The interactive terminal frontend using `ratatui`.
 - **`mangofetch-plugin-sdk`**: A toolkit for extending features at runtime.
 
 ---
