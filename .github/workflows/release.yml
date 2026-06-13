@@ -89,7 +89,7 @@ jobs:
 
       - name: Install Cross
         if: matrix.use_cross
-        run: cargo install cross --git https://github.com/cross-rs/cross
+        uses: taiki-e/install-action@cross
 
       - name: Install Linux Dependencies (Ubuntu x64)
         if: matrix.os == 'ubuntu-latest' && !matrix.use_cross
