@@ -232,4 +232,3 @@ pub async fn enqueue_download_with_overrides(
     mangofetch_core::core::manager::queue::try_start_next(queue.clone()).await;
     Ok(())
 }
-
