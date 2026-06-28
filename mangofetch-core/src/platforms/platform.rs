@@ -170,3 +170,27 @@ impl Platform {
         ]
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_platform_all() {
+        let platforms = Platform::all();
+        assert_eq!(platforms.len(), 13);
+        assert!(platforms.contains(&Platform::Hotmart));
+        assert!(platforms.contains(&Platform::YouTube));
+        assert!(platforms.contains(&Platform::Instagram));
+        assert!(platforms.contains(&Platform::TikTok));
+        assert!(platforms.contains(&Platform::Twitter));
+        assert!(platforms.contains(&Platform::Reddit));
+        assert!(platforms.contains(&Platform::Twitch));
+        assert!(platforms.contains(&Platform::Pinterest));
+        assert!(platforms.contains(&Platform::Bluesky));
+        assert!(platforms.contains(&Platform::Telegram));
+        assert!(platforms.contains(&Platform::Vimeo));
+        assert!(platforms.contains(&Platform::Udemy));
+        assert!(platforms.contains(&Platform::Bilibili));
+    }
+}
