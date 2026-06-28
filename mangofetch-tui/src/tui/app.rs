@@ -1152,14 +1152,14 @@ fn strip_ansi_and_clean(s: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use super::super::tui_reporter::new_log_sink;
     use super::*;
-    use std::sync::Arc;
-    use tokio::sync::Mutex;
     use mangofetch_core::core::manager::queue::DownloadQueue;
     use mangofetch_core::core::registry::PlatformRegistry;
-    use super::super::tui_reporter::new_log_sink;
-    use std::time::{Instant, Duration};
+    use std::sync::Arc;
     use std::sync::LazyLock;
+    use std::time::{Duration, Instant};
+    use tokio::sync::Mutex;
 
     static TEST_MUTEX: LazyLock<std::sync::Mutex<()>> = LazyLock::new(|| std::sync::Mutex::new(()));
 
