@@ -1149,3 +1149,64 @@ fn strip_ansi_and_clean(s: &str) -> String {
     }
     result.trim().to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::sync::Arc;
+    use tokio::sync::Mutex;
+    use mangofetch_core::core::manager::queue::DownloadQueue;
+    use mangofetch_core::core::registry::PlatformRegistry;
+    use super::super::tui_reporter::new_log_sink;
+    use std::time::{Instant, Duration};
+    use std::sync::LazyLock;
+
+    static TEST_MUTEX: LazyLock<std::sync::Mutex<()>> = LazyLock::new(|| std::sync::Mutex::new(()));
+
+    fn setup_app() -> App {
+        let queue = Arc::new(Mutex::new(DownloadQueue::new(1, None)));
+        let registry = Arc::new(PlatformRegistry::new());
+        let log_sink = new_log_sink();
+        App::new(queue, registry, log_sink)
+    }
+
+    #[test]
+    fn test_set_status() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let mut app = setup_app();
+        app.set_status("Test status".to_string());
+        assert_eq!(app.status_is_error, false);
+        assert_eq!(app.status_message, Some("Test status".to_string()));
+        assert!(app.message_time.is_some());
+    }
+
+    #[test]
+    fn test_set_error() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let mut app = setup_app();
+        app.set_error("Test error".to_string());
+        assert_eq!(app.status_is_error, true);
+        assert_eq!(app.status_message, Some("Test error".to_string()));
+        assert!(app.message_time.is_some());
+    }
+
+    #[test]
+    fn test_clear_status_if_needed_not_cleared_before_timeout() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let mut app = setup_app();
+        app.set_status("Test".to_string());
+        app.clear_status_if_needed();
+        assert_eq!(app.status_message, Some("Test".to_string()));
+    }
+
+    #[test]
+    fn test_clear_status_if_needed_cleared_after_timeout() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let mut app = setup_app();
+        app.set_status("Test".to_string());
+        app.message_time = Some(Instant::now().checked_sub(Duration::from_secs(5)).unwrap());
+        app.clear_status_if_needed();
+        assert_eq!(app.status_message, None);
+        assert!(app.message_time.is_none());
+    }
+}
