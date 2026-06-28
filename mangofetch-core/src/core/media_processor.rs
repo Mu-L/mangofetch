@@ -21,7 +21,7 @@ impl MediaProcessor {
     ) -> anyhow::Result<HlsDownloadResult> {
         let downloader = match options.client {
             Some(c) => crate::core::hls_downloader::HlsDownloader::with_client(c),
-            None => crate::core::hls_downloader::HlsDownloader::new(),
+            None => crate::core::hls_downloader::HlsDownloader::new()?,
         };
         downloader
             .download(
@@ -41,7 +41,7 @@ impl MediaProcessor {
     ) -> anyhow::Result<HlsDownloadResult> {
         let downloader = match options.client {
             Some(c) => crate::core::hls_downloader::HlsDownloader::with_client(c),
-            None => crate::core::hls_downloader::HlsDownloader::new(),
+            None => crate::core::hls_downloader::HlsDownloader::new()?,
         };
         downloader
             .download_with_quality(

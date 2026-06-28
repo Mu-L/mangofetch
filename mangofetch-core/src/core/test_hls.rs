@@ -38,7 +38,7 @@ async fn test_hls_download_master_playlist() {
         then.status(200).body(vec![0; 100]);
     });
 
-    let downloader = HlsDownloader::new();
+    let downloader = HlsDownloader::new().unwrap();
     let cancel_token = CancellationToken::new();
 
     let dir = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
@@ -75,7 +75,7 @@ async fn test_hls_download_master_playlist() {
 async fn test_hls_download_cancel() {
     let server = MockServer::start();
 
-    let downloader = HlsDownloader::new();
+    let downloader = HlsDownloader::new().unwrap();
     let cancel_token = CancellationToken::new();
     cancel_token.cancel(); // Cancel immediately
 
@@ -119,7 +119,7 @@ async fn test_hls_download_direct_variant() {
         then.status(200).body(vec![1; 50]);
     });
 
-    let downloader = HlsDownloader::new();
+    let downloader = HlsDownloader::new().unwrap();
     let cancel_token = CancellationToken::new();
 
     let dir = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
@@ -160,7 +160,7 @@ async fn test_hls_download_invalid_m3u8() {
             .body("This is not a valid m3u8 file at all");
     });
 
-    let downloader = HlsDownloader::new();
+    let downloader = HlsDownloader::new().unwrap();
     let cancel_token = CancellationToken::new();
 
     let dir = std::env::temp_dir().join(uuid::Uuid::new_v4().to_string());
