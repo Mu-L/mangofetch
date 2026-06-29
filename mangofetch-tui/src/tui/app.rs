@@ -1209,7 +1209,6 @@ mod tests {
         assert!(app.message_time.is_none());
     }
 
-
     #[test]
     fn test_downloads_category_label() {
         // Test without Nerd Font (nf = false)
