@@ -42,6 +42,7 @@ async fn copy_file_macos(path: &str) -> anyhow::Result<()> {
                 "set the clipboard to POSIX file (item 1 of argv)",
                 "-e",
                 "end run",
+                "--",
                 &path,
             ])
             .output()
