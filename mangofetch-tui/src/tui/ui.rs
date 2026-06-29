@@ -42,13 +42,13 @@ pub fn render(f: &mut Frame, app: &mut App) {
 
     if app.layout == "topbar" {
         let top_chunks =
-            Layout::vertical([Constraint::Length(2), Constraint::Min(0)]).split(main_padded);
+            Layout::vertical([Constraint::Length(3), Constraint::Min(0)]).split(main_padded);
 
         render_topbar(f, app, top_chunks[0]);
         render_main(f, app, top_chunks[1]);
     } else {
         let top_chunks =
-            Layout::horizontal([Constraint::Length(24), Constraint::Min(0)]).split(main_padded);
+            Layout::horizontal([Constraint::Length(26), Constraint::Min(0)]).split(main_padded);
 
         render_sidebar(f, app, top_chunks[0]);
         render_main(f, app, top_chunks[1]);
@@ -70,7 +70,7 @@ pub fn render(f: &mut Frame, app: &mut App) {
         width: area.width.saturating_sub(2),
         height: chunks[2].height,
     };
-    render_dense_statusbar(f, app, status_padded);
+    render_statusbar(f, app, status_padded);
 
     // Overlays
     if app.show_help {
@@ -214,12 +214,12 @@ fn render_main(f: &mut Frame, app: &mut App, area: Rect) {
 fn render_terminal_output(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
 
-    // Use a high-density industrial block
+    // Minimalist: Use top border only to act as a clean separator
     let block = Block::default()
-        .borders(Borders::ALL)
-        .title(" 📡 Terminal output ")
-        .title_style(Style::new().fg(t.accent).bold())
-        .border_style(Style::new().fg(t.surface));
+        .borders(Borders::TOP)
+        .title(" 📡 TERMINAL OUTPUT ")
+        .title_style(Style::new().fg(t.text_dim).bold())
+        .border_style(Style::new().fg(t.surface_dim));
 
     let inner = block.inner(area);
     f.render_widget(block, area);
@@ -364,9 +364,10 @@ fn render_queue_table(f: &mut Frame, app: &mut App, area: Rect) {
         let p = Paragraph::new(empty_msg)
             .block(
                 Block::default()
-                    .borders(Borders::ALL)
+                    .borders(Borders::TOP)
                     .title(title)
-                    .border_style(Style::new().fg(t.text_dim)),
+                    .title_style(Style::new().fg(t.text_dim).bold())
+                    .border_style(Style::new().fg(t.surface_dim)),
             )
             .style(Style::new().fg(t.text_dim))
             .alignment(Alignment::Center);
@@ -389,9 +390,10 @@ fn render_queue_table(f: &mut Frame, app: &mut App, area: Rect) {
     .header(header)
     .block(
         Block::default()
-            .borders(Borders::ALL)
+            .borders(Borders::TOP)
             .title(title)
-            .border_style(Style::new().fg(t.text_dim)),
+            .title_style(Style::new().fg(t.text_dim).bold())
+            .border_style(Style::new().fg(t.surface_dim)),
     )
     .row_highlight_style(Style::new().bg(t.highlight).bold())
     .highlight_symbol("▶ ");
@@ -425,9 +427,10 @@ fn render_logs(f: &mut Frame, app: &App, area: Rect) {
 
     let list = List::new(visible).block(
         Block::default()
-            .borders(Borders::ALL)
-            .title(format!(" 📋 Logs  ({} lines) ", app.log_lines.len()))
-            .border_style(Style::new().fg(t.text_dim)),
+            .borders(Borders::TOP)
+            .title(format!(" 📋 LOGS  ({} lines) ", app.log_lines.len()))
+            .title_style(Style::new().fg(t.text_dim).bold())
+            .border_style(Style::new().fg(t.surface_dim)),
     );
     f.render_widget(list, area);
 }
@@ -484,9 +487,10 @@ fn render_settings(f: &mut Frame, app: &App, area: Rect) {
     .header(header)
     .block(
         Block::default()
-            .borders(Borders::ALL)
-            .title(" ⚙  Configuration & Appearance ")
-            .border_style(Style::new().fg(t.surface)),
+            .borders(Borders::TOP)
+            .title(" ⚙  CONFIGURATION & APPEARANCE ")
+            .title_style(Style::new().fg(t.text_dim).bold())
+            .border_style(Style::new().fg(t.surface_dim)),
     );
 
     f.render_widget(table, area);
@@ -815,12 +819,8 @@ fn render_home(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
     let nf = app.use_nerd_fonts;
 
-    // Outer border block representing the home panel container
-    let block = Block::default()
-        .borders(Borders::ALL)
-        .border_style(Style::new().fg(t.surface));
-    let inner_area = block.inner(area);
-    f.render_widget(block, area);
+    // Minimalist: No outer borders for tab containers, just clean margins
+    let inner_area = area;
 
     // Center the content horizontally and vertically inside the central workspace (orbital)
     let home_w = 85;
@@ -1024,9 +1024,8 @@ fn render_about(f: &mut Frame, app: &App, area: Rect) {
 
     let sidebar = List::new(sidebar_items).block(
         Block::default()
-            .borders(Borders::ALL)
-            .title(" ABOUT ")
-            .border_style(Style::new().fg(t.surface)),
+            .borders(Borders::RIGHT)
+            .border_style(Style::new().fg(t.surface_dim)),
     );
     f.render_widget(sidebar, chunks[0]);
 
@@ -1052,11 +1051,7 @@ fn render_about(f: &mut Frame, app: &App, area: Rect) {
     };
 
     let p = Paragraph::new(text)
-        .block(
-            Block::default()
-                .borders(Borders::ALL)
-                .border_style(Style::new().fg(t.surface)),
-        )
+        .block(Block::default().borders(Borders::NONE))
         .wrap(Wrap { trim: false });
     f.render_widget(p, chunks[1]);
 }
@@ -1448,10 +1443,10 @@ fn render_topbar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
     let nf = app.use_nerd_fonts;
 
-    // TopBar block with borders
+    // TopBar block with subtle divider
     let block = Block::default()
         .borders(Borders::BOTTOM)
-        .border_style(Style::new().fg(t.accent));
+        .border_style(Style::new().fg(t.surface_dim));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -1529,10 +1524,10 @@ fn render_sidebar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
     let nf = app.use_nerd_fonts;
 
-    // Sidebar block with right border in brand color
+    // Sidebar block with subtle right border
     let block = Block::default()
         .borders(Borders::RIGHT)
-        .border_style(Style::new().fg(t.accent));
+        .border_style(Style::new().fg(t.surface_dim));
     let inner = block.inner(area);
     f.render_widget(block, area);
 
@@ -1712,7 +1707,7 @@ fn render_keybindings(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(Line::from(all_spans)), area);
 }
 
-fn render_dense_statusbar(f: &mut Frame, app: &App, area: Rect) {
+fn render_statusbar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
     let nf = app.use_nerd_fonts;
 

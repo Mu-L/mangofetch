@@ -393,7 +393,7 @@ impl App {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let mut sys_info = sysinfo::System::new();
         let pid = sysinfo::get_current_pid().unwrap_or(sysinfo::Pid::from(0));
-        sys_info.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]), true);
+        sys_info.refresh_processes(sysinfo::ProcessesToUpdate::Some(&[pid]));
 
         Self {
             state: AppState::Splash,
@@ -472,6 +472,8 @@ impl App {
             "mangosteen" => Theme::mangosteen(),
             "kiwi" => Theme::kiwi(),
             "tropical" => Theme::tropical(),
+            "frost" => Theme::frost(),
+            "monochrome" => Theme::monochrome(),
             _ => Theme::mango(),
         }
     }
@@ -629,7 +631,10 @@ impl App {
                     "lychee" => "starfruit",
                     "starfruit" => "mangosteen",
                     "mangosteen" => "kiwi",
-                    "kiwi" => "mango",
+                    "kiwi" => "tropical",
+                    "tropical" => "frost",
+                    "frost" => "monochrome",
+                    "monochrome" => "mango",
                     _ => "mango",
                 };
                 settings.appearance.tui_theme = next.to_string();
@@ -874,7 +879,7 @@ impl App {
         // Refresh system info (Process specific, every 2 seconds)
         if self.last_sys_refresh.elapsed().as_secs() >= 2 {
             self.sys_info
-                .refresh_processes(sysinfo::ProcessesToUpdate::Some(&[self.pid]), true);
+                .refresh_processes(sysinfo::ProcessesToUpdate::Some(&[self.pid]));
             if let Some(process) = self.sys_info.process(self.pid) {
                 self.cpu_usage = process.cpu_usage();
                 self.mem_usage = process.memory();
@@ -1208,6 +1213,8 @@ mod tests {
         app.clear_status_if_needed();
         assert_eq!(app.status_message, None);
         assert!(app.message_time.is_none());
+    }
+
     use super::*;
 
     #[test]

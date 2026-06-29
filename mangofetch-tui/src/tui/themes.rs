@@ -228,6 +228,42 @@ impl Theme {
         }
     }
 
+    /// ❄️ Frost — Nordic ice & cool grays
+    pub fn frost() -> Self {
+        Self {
+            accent: Color::Rgb(136, 192, 208),    // Frost blue
+            secondary: Color::Rgb(129, 161, 193), // Muted dark blue
+            highlight: Color::Rgb(46, 52, 64),    // Nord dark gray
+            background: Color::Rgb(26, 28, 32),   // Cool deep charcoal
+            surface: Color::Rgb(36, 40, 48),      // Cool panel gray
+            surface_dim: Color::Rgb(30, 34, 40),
+            text: Color::Rgb(236, 239, 244),      // Clean white/gray
+            text_dim: Color::Rgb(140, 150, 168),  // Muted gray
+            success: Color::Rgb(163, 190, 140),   // Nord green
+            warning: Color::Rgb(235, 203, 139),   // Nord yellow
+            error: Color::Rgb(191, 97, 106),      // Nord red
+            progress: Color::Rgb(143, 188, 187),  // Frost teal
+        }
+    }
+
+    /// 🔳 Monochrome — minimalist grayscale with a sharp white accent
+    pub fn monochrome() -> Self {
+        Self {
+            accent: Color::Rgb(255, 255, 255),    // Pure white
+            secondary: Color::Rgb(180, 180, 180), // Light gray
+            highlight: Color::Rgb(35, 35, 35),    // Dark gray
+            background: Color::Rgb(12, 12, 12),   // Pitch black / deep charcoal
+            surface: Color::Rgb(28, 28, 28),      // Muted surface
+            surface_dim: Color::Rgb(20, 20, 20),
+            text: Color::Rgb(240, 240, 240),      // Crisp white
+            text_dim: Color::Rgb(110, 110, 110),  // Muted gray
+            success: Color::Rgb(160, 160, 160),   // Soft gray success
+            warning: Color::Rgb(200, 200, 200),
+            error: Color::Rgb(220, 50, 50),       // Alert red (critical only)
+            progress: Color::Rgb(220, 220, 220),  // Clean gray progress
+        }
+    }
+
     pub fn from_json(name: &str) -> Option<Self> {
         let config_dir = dirs::config_dir().unwrap_or_else(|| PathBuf::from("."));
         let theme_path = config_dir
