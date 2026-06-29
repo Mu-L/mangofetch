@@ -156,9 +156,9 @@ impl HlsDownloader {
             {
                 Ok(resp) => match resp.text().await {
                     Ok(text) => return Ok(text),
-                    Err(e) => last_err = Some(anyhow::anyhow!(e)),
+                    Err(e) => last_err = Some(e.to_string()),
                 },
-                Err(e) => last_err = Some(anyhow::anyhow!(e)),
+                Err(e) => last_err = Some(e.to_string()),
             }
             if attempt < max_retries - 1 {
                 let base = 500 * (attempt as u64 + 1);
@@ -166,9 +166,9 @@ impl HlsDownloader {
                 tokio::time::sleep(Duration::from_millis(base + jitter)).await;
             }
         }
-        Err(last_err.unwrap_or_else(|| {
-            anyhow::anyhow!("Failed to fetch m3u8 after {} attempts", max_retries)
-        }))
+        Err(anyhow::anyhow!(last_err.unwrap_or_else(|| {
+            format!("Failed to fetch m3u8 after {} attempts", max_retries)
+        })))
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -376,15 +376,15 @@ impl HlsDownloader {
             {
                 Ok(resp) => {
                     if !resp.status().is_success() {
-                        last_err = Some(anyhow::anyhow!("HTTP {} fetching AES key", resp.status()));
+                        last_err = Some(format!("HTTP {} fetching AES key", resp.status()));
                     } else {
                         match resp.bytes().await {
                             Ok(bytes) => return Ok(bytes.to_vec()),
-                            Err(e) => last_err = Some(anyhow::anyhow!(e)),
+                            Err(e) => last_err = Some(e.to_string()),
                         }
                     }
                 }
-                Err(e) => last_err = Some(anyhow::anyhow!(e)),
+                Err(e) => last_err = Some(e.to_string()),
             }
             if attempt < max_retries - 1 {
                 let base = 500 * (attempt as u64 + 1);
@@ -392,9 +392,9 @@ impl HlsDownloader {
                 tokio::time::sleep(Duration::from_millis(base + jitter)).await;
             }
         }
-        Err(last_err.unwrap_or_else(|| {
-            anyhow::anyhow!("Failed to fetch AES key after {} attempts", max_retries)
-        }))
+        Err(anyhow::anyhow!(last_err.unwrap_or_else(|| {
+            format!("Failed to fetch AES key after {} attempts", max_retries)
+        })))
     }
 }
 
@@ -521,33 +521,34 @@ async fn download_segment_with_retry(
                 .header("Referer", referer)
                 .header("User-Agent", user_agent)
                 .send()
-                .await?;
+                .await
+                .map_err(|e| e.to_string())?;
 
             let status = resp.status();
             if !status.is_success() {
                 let code = status.as_u16();
                 if (400..500).contains(&code) && code != 429 && code != 408 {
-                    return Err(anyhow::anyhow!("HTTP {} (fatal) downloading segment", code));
+                    return Err(format!("HTTP {} (fatal) downloading segment", code));
                 }
-                return Err(anyhow::anyhow!("HTTP {} downloading segment", code));
+                return Err(format!("HTTP {} downloading segment", code));
             }
 
             resp.bytes()
                 .await
                 .map(|b| b.to_vec())
-                .map_err(|e| anyhow::anyhow!(e))
+                .map_err(|e| e.to_string())
         })
         .await;
 
         match result {
             Ok(Ok(data)) => return Ok(data),
             Ok(Err(e)) => {
-                if e.to_string().contains("(fatal)") {
-                    return Err(e);
+                if e.contains("(fatal)") {
+                    return Err(anyhow::anyhow!(e));
                 }
                 last_err = Some(e);
             }
-            Err(_) => last_err = Some(anyhow::anyhow!("Timeout downloading segment")),
+            Err(_) => last_err = Some("Timeout downloading segment".to_string()),
         }
         if attempt < max_retries - 1 {
             let base = 500 * (attempt as u64 + 1);
@@ -555,9 +556,9 @@ async fn download_segment_with_retry(
             tokio::time::sleep(std::time::Duration::from_millis(base + jitter)).await;
         }
     }
-    Err(last_err.unwrap_or_else(|| {
-        anyhow::anyhow!("Segment download failed after {} attempts", max_retries)
-    }))
+    Err(anyhow::anyhow!(last_err.unwrap_or_else(|| {
+        format!("Segment download failed after {} attempts", max_retries)
+    })))
 }
 
 fn compute_iv(encryption: &EncryptionInfo, segment_index: usize, media_sequence: u64) -> [u8; 16] {
