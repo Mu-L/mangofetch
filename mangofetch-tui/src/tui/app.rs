@@ -1149,3 +1149,25 @@ fn strip_ansi_and_clean(s: &str) -> String {
     }
     result.trim().to_string()
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_downloads_category_label() {
+        // Test without Nerd Font (nf = false)
+        assert_eq!(DownloadsCategory::All.label(false), "All");
+        assert_eq!(DownloadsCategory::Active.label(false), "Active");
+        assert_eq!(DownloadsCategory::Queued.label(false), "Queued");
+        assert_eq!(DownloadsCategory::Completed.label(false), "Completed");
+        assert_eq!(DownloadsCategory::Failed.label(false), "Failed");
+
+        // Test with Nerd Font (nf = true)
+        assert_eq!(DownloadsCategory::All.label(true), "󰄗 All");
+        assert_eq!(DownloadsCategory::Active.label(true), "󰄖 Active");
+        assert_eq!(DownloadsCategory::Queued.label(true), "󰄗 Queued");
+        assert_eq!(DownloadsCategory::Completed.label(true), "󰄬 Completed");
+        assert_eq!(DownloadsCategory::Failed.label(true), "󰅖 Failed");
+    }
+}
