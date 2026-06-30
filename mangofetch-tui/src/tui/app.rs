@@ -393,7 +393,7 @@ impl App {
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let mut sys_info = sysinfo::System::new();
         let pid = sysinfo::get_current_pid().unwrap_or(sysinfo::Pid::from(0));
-        sys_info.refresh_processes();
+        sys_info.refresh_processes_specifics(sysinfo::ProcessRefreshKind::new());
 
         Self {
             state: AppState::Splash,
@@ -873,7 +873,8 @@ impl App {
 
         // Refresh system info (Process specific, every 2 seconds)
         if self.last_sys_refresh.elapsed().as_secs() >= 2 {
-            self.sys_info.refresh_processes();
+            self.sys_info
+                .refresh_processes_specifics(sysinfo::ProcessRefreshKind::new());
             if let Some(process) = self.sys_info.process(self.pid) {
                 self.cpu_usage = process.cpu_usage();
                 self.mem_usage = process.memory();
@@ -1208,6 +1209,7 @@ mod tests {
         assert_eq!(app.status_message, None);
         assert!(app.message_time.is_none());
     }
+    use super::*;
 
     #[test]
     fn test_downloads_category_label() {
