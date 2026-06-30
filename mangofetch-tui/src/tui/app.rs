@@ -392,6 +392,7 @@ impl App {
         let theme = Self::make_theme(&settings.appearance.tui_theme);
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let mut sys_info = sysinfo::System::new();
+        let pid = sysinfo::get_current_pid().unwrap_or(sysinfo::Pid::from(0));
         sys_info.refresh_processes();
 
         Self {
@@ -471,8 +472,6 @@ impl App {
             "mangosteen" => Theme::mangosteen(),
             "kiwi" => Theme::kiwi(),
             "tropical" => Theme::tropical(),
-            "frost" => Theme::frost(),
-            "monochrome" => Theme::monochrome(),
             _ => Theme::mango(),
         }
     }
@@ -630,10 +629,7 @@ impl App {
                     "lychee" => "starfruit",
                     "starfruit" => "mangosteen",
                     "mangosteen" => "kiwi",
-                    "kiwi" => "tropical",
-                    "tropical" => "frost",
-                    "frost" => "monochrome",
-                    "monochrome" => "mango",
+                    "kiwi" => "mango",
                     _ => "mango",
                 };
                 settings.appearance.tui_theme = next.to_string();
@@ -1212,11 +1208,6 @@ mod tests {
         assert_eq!(app.status_message, None);
         assert!(app.message_time.is_none());
     }
-<<<<<<< HEAD
-
-    use super::*;
-=======
->>>>>>> origin/add-paths-tests-340729286566546073
 
     #[test]
     fn test_downloads_category_label() {
