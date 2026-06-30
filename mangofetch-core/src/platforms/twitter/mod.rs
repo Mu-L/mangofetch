@@ -614,7 +614,11 @@ impl TwitterDownloader {
         }
 
         if items.len() == 1 {
-            Ok(TwitterMedia::Single(items.into_iter().next().unwrap()))
+            if let Some(item) = items.into_iter().next() {
+                Ok(TwitterMedia::Single(item))
+            } else {
+                Err(anyhow!("No media found in tweet"))
+            }
         } else {
             Ok(TwitterMedia::Multiple(items))
         }
@@ -773,7 +777,10 @@ impl PlatformDownloader for TwitterDownloader {
         let count = info.available_qualities.len();
 
         if count == 1 {
-            let quality = info.available_qualities.first().unwrap();
+            let quality = info
+                .available_qualities
+                .first()
+                .ok_or_else(|| anyhow!("No available qualities found"))?;
             let filename = format!(
                 "{}.{}",
                 sanitize_filename::sanitize(&info.title),
