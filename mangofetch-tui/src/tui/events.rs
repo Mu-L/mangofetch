@@ -475,9 +475,21 @@ async fn handle_normal_mode(app: &mut App, code: KeyCode, modifiers: KeyModifier
             Tab::Home => app.execute_home_action().await,
             _ => {}
         },
-        KeyCode::Left | KeyCode::Right => {
-            if app.active_tab == Tab::Settings {
-                app.toggle_setting();
+        KeyCode::Left | KeyCode::Right => match app.active_tab {
+            Tab::Settings => app.toggle_setting(),
+            Tab::Downloads => {
+                if code == KeyCode::Left {
+                    app.prev_category();
+                } else {
+                    app.next_category();
+                }
+            }
+            _ => {
+                if code == KeyCode::Left {
+                    app.prev_tab();
+                } else {
+                    app.next_tab();
+                }
             }
         }
         KeyCode::Char('[') => {
