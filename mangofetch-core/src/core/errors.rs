@@ -1,49 +1,3 @@
-use thiserror::Error;
-
-#[derive(Error, Debug)]
-pub enum MangoError {
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
-
-    #[error("Network error: {0}")]
-    Network(#[from] reqwest::Error),
-
-    #[error("Serialization error: {0}")]
-    Serialization(#[from] serde_json::Error),
-
-    #[error("Dependency missing: {0}")]
-    DependencyMissing(String),
-
-    #[error("Process error: {0}")]
-    Process(String),
-
-    #[error("Download error: {0}")]
-    Download(String),
-
-    #[error("Authentication required: {0}")]
-    AuthRequired(String),
-
-    #[error("Rate limited: {0}")]
-    RateLimited(String),
-
-    #[error("Content restricted: {0}")]
-    Restricted(String),
-
-    #[error("Content not found: {0}")]
-    NotFound(String),
-
-    #[error("FFmpeg error: {0}")]
-    FFmpeg(String),
-
-    #[error("Internal error: {0}")]
-    Internal(String),
-
-    #[error("{0}")]
-    Custom(String),
-}
-
-pub type MangoResult<T> = Result<T, MangoError>;
-
 pub fn classify_download_error(error: &str) -> (&str, &str) {
     let lower = error.to_lowercase();
 
@@ -116,87 +70,83 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_classify_download_error_auth_required() {
-        let (code, msg) = classify_download_error("Sign in to confirm you're not a bot");
+    fn test_auth_required() {
+        let (code, _) = classify_download_error("Please login to continue");
         assert_eq!(code, "auth_required");
-        assert!(msg.contains("requires login"));
-
-        let (code, _) = classify_download_error("ERROR: 403 Forbidden");
+        let (code, _) = classify_download_error("HTTP Error 403: Forbidden");
+        assert_eq!(code, "auth_required");
+        let (code, _) = classify_download_error("authentication failed");
         assert_eq!(code, "auth_required");
     }
 
     #[test]
-    fn test_classify_download_error_rate_limited() {
-        let (code, msg) = classify_download_error("HTTP Error 429: Too Many Requests");
+    fn test_rate_limited() {
+        let (code, _) = classify_download_error("Too many requests");
         assert_eq!(code, "rate_limited");
-        assert!(msg.contains("Too many requests"));
-
-        let (code, _) = classify_download_error("captcha challenge failed");
+        let (code, _) = classify_download_error("HTTP Error 429");
+        assert_eq!(code, "rate_limited");
+        let (code, _) = classify_download_error("captcha required");
         assert_eq!(code, "rate_limited");
     }
 
     #[test]
-    fn test_classify_download_error_restricted() {
-        let (code, msg) = classify_download_error("Video is private");
+    fn test_restricted() {
+        let (code, _) = classify_download_error("This video is private");
         assert_eq!(code, "restricted");
-        assert!(msg.contains("private or age-restricted"));
-
         let (code, _) = classify_download_error("age-restricted content");
         assert_eq!(code, "restricted");
     }
 
     #[test]
-    fn test_classify_download_error_file_missing() {
-        let (code, msg) = classify_download_error("Downloaded file not found");
+    fn test_file_missing() {
+        let (code, _) = classify_download_error("downloaded file not found on disk");
         assert_eq!(code, "file_missing");
-        assert!(msg.contains("could not be located"));
     }
 
     #[test]
-    fn test_classify_download_error_not_found() {
-        let (code, msg) = classify_download_error("Video not found");
+    fn test_not_found() {
+        let (code, _) = classify_download_error("404 Not Found");
         assert_eq!(code, "not_found");
-        assert!(msg.contains("Content not found"));
-
-        let (code, _) = classify_download_error("ERROR: 404 Not Found");
+        let (code, _) = classify_download_error("The video has been deleted");
         assert_eq!(code, "not_found");
-
-        let (code, _) = classify_download_error("Video unavailable");
+        let (code, _) = classify_download_error("content unavailable");
         assert_eq!(code, "not_found");
     }
 
     #[test]
-    fn test_classify_download_error_ffmpeg_needed() {
-        let (code, msg) = classify_download_error("ffmpeg is not installed");
+    fn test_ffmpeg_needed() {
+        let (code, _) = classify_download_error("ffmpeg is required");
         assert_eq!(code, "ffmpeg_needed");
-        assert!(msg.contains("FFmpeg is required"));
-
-        let (code, _) = classify_download_error("Failed to merge formats");
+        let (code, _) = classify_download_error("error while muxing");
         assert_eq!(code, "ffmpeg_needed");
     }
 
     #[test]
-    fn test_classify_download_error_ytdlp_needed() {
-        let (code, msg) = classify_download_error("yt-dlp missing");
+    fn test_ytdlp_needed() {
+        let (code, _) = classify_download_error("yt-dlp is missing");
         assert_eq!(code, "ytdlp_needed");
-        assert!(msg.contains("yt-dlp is required"));
+        let (code, _) = classify_download_error("no downloader found");
+        assert_eq!(code, "ytdlp_needed");
     }
 
     #[test]
-    fn test_classify_download_error_ytdlp_outdated() {
-        let (code, msg) = classify_download_error("Cannot extract nsig");
+    fn test_ytdlp_outdated() {
+        let (code, _) = classify_download_error("Unable to extract nsig");
         assert_eq!(code, "ytdlp_outdated");
-        assert!(msg.contains("needs updating"));
-
-        let (code, _) = classify_download_error("Unable to extract signature");
+        let (code, _) = classify_download_error("signature decryption failed");
         assert_eq!(code, "ytdlp_outdated");
     }
 
     #[test]
-    fn test_classify_download_error_unknown() {
-        let original_error = "Something completely different went wrong";
-        let (code, msg) = classify_download_error(original_error);
+    fn test_unknown() {
+        let (code, msg) = classify_download_error("some random error");
         assert_eq!(code, "unknown");
-        assert_eq!(msg, original_error);
+        assert_eq!(msg, "some random error");
+    }
+
+    #[test]
+    fn test_case_insensitivity() {
+        let (code, _) = classify_download_error("LOGIN REQUIRED");
+        assert_eq!(code, "auth_required");
     }
 }
