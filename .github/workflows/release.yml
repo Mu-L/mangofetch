@@ -8,9 +8,6 @@ on:
 permissions:
   contents: write
 
-env:
-  AWS_LC_SYS_NO_ASM: 1
-
 jobs:
   create-release:
     name: Create Release
@@ -76,6 +73,10 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install NASM (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: ilammy/setup-nasm@v1
 
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
