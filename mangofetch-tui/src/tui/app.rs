@@ -893,27 +893,29 @@ impl App {
         }
 
         if let Ok(q) = self.queue.try_lock() {
-            let all = q.get_state();
+            // Optimization: avoid mapping `to_info()` for all items on every tick (which clones many strings).
+            // Compute aggregates directly from the raw `QueueItem` references.
+            let items = &q.items;
 
             // Compute aggregates from full list
-            self.active_count = all
+            self.active_count = items
                 .iter()
                 .filter(|i| matches!(i.status, QueueStatus::Active))
                 .count();
-            self.queued_count = all
+            self.queued_count = items
                 .iter()
                 .filter(|i| matches!(i.status, QueueStatus::Queued))
                 .count();
-            self.completed_count = all
+            self.completed_count = items
                 .iter()
                 .filter(|i| matches!(i.status, QueueStatus::Complete { .. }))
                 .count();
-            self.failed_count = all
+            self.failed_count = items
                 .iter()
                 .filter(|i| matches!(i.status, QueueStatus::Error { .. }))
                 .count();
 
-            self.total_speed = all
+            self.total_speed = items
                 .iter()
                 .filter(|i| matches!(i.status, QueueStatus::Active))
                 .map(|i| i.speed_bytes_per_sec)
@@ -921,8 +923,8 @@ impl App {
 
             // Filter per tab and category
             self.items = match self.active_tab {
-                Tab::Downloads => all
-                    .into_iter()
+                Tab::Downloads => items
+                    .iter()
                     .filter(|i| match self.download_category {
                         DownloadsCategory::All => true,
                         DownloadsCategory::Active => matches!(i.status, QueueStatus::Active),
@@ -934,6 +936,8 @@ impl App {
                             matches!(i.status, QueueStatus::Error { .. })
                         }
                     })
+                    // Optimization: Only clone/map the items that pass the view filter
+                    .map(|i| i.to_info())
                     .collect(),
                 _ => Vec::new(),
             };
@@ -1174,7 +1178,7 @@ mod tests {
         let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let mut app = setup_app();
         app.set_status("Test status".to_string());
-        assert_eq!(app.status_is_error, false);
+        assert!(!app.status_is_error);
         assert_eq!(app.status_message, Some("Test status".to_string()));
         assert!(app.message_time.is_some());
     }
@@ -1184,7 +1188,7 @@ mod tests {
         let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
         let mut app = setup_app();
         app.set_error("Test error".to_string());
-        assert_eq!(app.status_is_error, true);
+        assert!(app.status_is_error);
         assert_eq!(app.status_message, Some("Test error".to_string()));
         assert!(app.message_time.is_some());
     }

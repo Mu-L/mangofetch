@@ -229,6 +229,7 @@ impl Theme {
     }
 
     /// ❄️ Frost — Nordic ice & cool grays
+    #[allow(dead_code)]
     pub fn frost() -> Self {
         Self {
             accent: Color::Rgb(136, 192, 208),    // Frost blue
@@ -247,6 +248,7 @@ impl Theme {
     }
 
     /// 🔳 Monochrome — minimalist grayscale with a sharp white accent
+    #[allow(dead_code)]
     pub fn monochrome() -> Self {
         Self {
             accent: Color::Rgb(255, 255, 255),    // Pure white

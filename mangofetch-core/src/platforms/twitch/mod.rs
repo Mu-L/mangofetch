@@ -1,3 +1,4 @@
+#![allow(clippy::await_holding_lock)]
 use anyhow::anyhow;
 use async_trait::async_trait;
 use tokio::sync::mpsc;
