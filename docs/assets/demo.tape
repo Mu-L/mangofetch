@@ -1,6 +1,6 @@
-Output docs/assets/demo.gif
+Output demo.gif
 
-Set FontSize 14
+Set FontSize 15
 Set FontFamily "ZedMono NFM"
 Set Width 1200
 Set Height 700
@@ -8,12 +8,12 @@ Set Theme "TokyoNight"
 Set Padding 10
 
 Hide
-Type "./target/release/mangofetch"
+Type "mangofetch"
 Enter
 Sleep 1.5s
 Show
 
-Sleep 4.5s
+Sleep 2.5s
 Tab
 Sleep 1.5s
 Down
@@ -22,11 +22,11 @@ Down
 Sleep 0.8s
 Up
 Sleep 1s
-Type "s"
+Type "a"
 Sleep 1.5s
-Type "120"
+Type "https://www.youtube.com/watch?v=UN6UYR1sAJk"
 Sleep 1s
 Enter
-Sleep 3s
+Sleep 20s
 Type "q"
 Sleep 1s

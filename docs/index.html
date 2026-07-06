@@ -1,0 +1,1040 @@
+<!doctype html>
+<html lang="es">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <title>mangofetch — Fast, Tropical, Pure Rust.</title>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+        <link
+            href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=IBM+Plex+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+            rel="stylesheet"
+        />
+        <style>
+            :root {
+                --ink: #14120f;
+                --panel: #1b1815;
+                --panel2: #221e19;
+                --cream: #f3ecdd;
+                --muted: #8f8778;
+                --line: #34302a;
+                --line-soft: #262119;
+                --radius: 3px;
+
+                /* active theme (default: mango) */
+                --accent: #ff8a3d;
+                --accent2: #4a8f5c;
+                --accent-dim: rgba(255, 138, 61, 0.14);
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html {
+                scroll-behavior: smooth;
+            }
+            body {
+                margin: 0;
+                background: var(--ink);
+                color: var(--cream);
+                font-family: "IBM Plex Sans", sans-serif;
+                font-size: 16px;
+                line-height: 1.65;
+            }
+            a {
+                color: var(--accent);
+                text-decoration: none;
+            }
+            a:hover {
+                text-decoration: underline;
+            }
+            a:focus-visible,
+            button:focus-visible {
+                outline: 2px solid var(--accent);
+                outline-offset: 2px;
+            }
+            .wrap {
+                max-width: 920px;
+                margin: 0 auto;
+                padding: 0 24px;
+            }
+            code,
+            pre,
+            .mono {
+                font-family: "JetBrains Mono", monospace;
+            }
+            h1,
+            h2,
+            h3,
+            .display {
+                font-family: "Space Grotesk", sans-serif;
+                letter-spacing: -0.01em;
+            }
+
+            /* ---- top status line, mimics a running TUI app ---- */
+            .statusline {
+                border-top: 1px solid var(--line);
+                border-bottom: 1px solid var(--line);
+                font-family: "JetBrains Mono", monospace;
+                font-size: 12px;
+                color: var(--muted);
+            }
+            .statusline .wrap {
+                display: flex;
+                justify-content: space-between;
+                padding: 9px 24px;
+            }
+            .statusline .left b {
+                color: var(--accent);
+            }
+            .statusline .right {
+                letter-spacing: 0.03em;
+            }
+
+            nav.topnav {
+                position: sticky;
+                top: 0;
+                z-index: 20;
+                background: rgba(20, 18, 15, 0.92);
+                backdrop-filter: blur(6px);
+                border-bottom: 1px solid var(--line-soft);
+            }
+            .topnav .wrap {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 14px 24px;
+            }
+            .brandmark {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                font-family: "JetBrains Mono", monospace;
+                font-weight: 600;
+                font-size: 14px;
+            }
+            .fruitdot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                background: var(--accent);
+                display: inline-block;
+                transition: background 0.3s ease;
+            }
+            .topnav ul {
+                list-style: none;
+                display: flex;
+                gap: 26px;
+                margin: 0;
+                padding: 0;
+                font-size: 13px;
+                font-family: "JetBrains Mono", monospace;
+            }
+            .topnav ul a {
+                color: var(--muted);
+            }
+            .topnav ul a:hover {
+                color: var(--cream);
+                text-decoration: none;
+            }
+
+            /* ---- hero ---- */
+            .hero {
+                padding: 64px 0 8px;
+            }
+            .hero .kicker {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 12px;
+                color: var(--accent);
+                text-transform: uppercase;
+                letter-spacing: 0.14em;
+                margin-bottom: 16px;
+                transition: color 0.3s ease;
+            }
+            .hero h1 {
+                font-size: clamp(2.2rem, 5vw, 3.6rem);
+                margin: 0 0 14px;
+            }
+            .hero p.lede {
+                font-size: 1.12rem;
+                color: var(--muted);
+                max-width: 50ch;
+                margin: 0 0 30px;
+            }
+            .badges {
+                display: flex;
+                gap: 8px;
+                flex-wrap: wrap;
+                margin-bottom: 28px;
+            }
+            .badge {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 11px;
+                border: 1px solid var(--line);
+                color: var(--muted);
+                padding: 3px 9px;
+                border-radius: 20px;
+            }
+
+            /* ---- TUI mockup ---- */
+            .tui {
+                background: var(--panel);
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                overflow: hidden;
+                box-shadow: 0 30px 60px -24px rgba(0, 0, 0, 0.6);
+            }
+            .tui-top {
+                display: flex;
+                align-items: center;
+                justify-content: space-between;
+                padding: 9px 16px;
+                background: linear-gradient(180deg, #1f1b16, #171310);
+                border-bottom: 1px solid var(--line-soft);
+                font-family: "JetBrains Mono", monospace;
+                font-size: 11.5px;
+                color: var(--muted);
+            }
+            .tui-top .name {
+                color: var(--cream);
+            }
+            .tui-top .name b {
+                color: var(--accent);
+            }
+            .tabs {
+                display: flex;
+                gap: 2px;
+                padding: 10px 12px 0;
+            }
+            .tab {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 12px;
+                padding: 7px 14px;
+                color: var(--muted);
+                border: 1px solid transparent;
+                border-bottom: none;
+                border-radius: 3px 3px 0 0;
+                cursor: default;
+            }
+            .tab.active {
+                color: var(--cream);
+                background: var(--panel2);
+                border-color: var(--line);
+            }
+            .queue {
+                padding: 16px;
+            }
+            .qrow {
+                display: grid;
+                grid-template-columns: 1fr 90px 110px;
+                gap: 14px;
+                align-items: center;
+                padding: 9px 4px;
+                font-family: "JetBrains Mono", monospace;
+                font-size: 12.5px;
+                border-bottom: 1px solid var(--line-soft);
+            }
+            .qrow:last-child {
+                border-bottom: none;
+            }
+            .qrow .site {
+                color: var(--muted);
+                font-size: 11px;
+            }
+            .qname {
+                color: var(--cream);
+            }
+            .qtrack {
+                height: 5px;
+                background: var(--line-soft);
+                border-radius: 3px;
+                overflow: hidden;
+            }
+            .qfill {
+                height: 100%;
+                background: linear-gradient(
+                    90deg,
+                    var(--accent2),
+                    var(--accent)
+                );
+                transition:
+                    background 0.3s ease,
+                    width 0.6s ease;
+            }
+            .qstat {
+                text-align: right;
+                font-size: 11px;
+            }
+            .qstat.ok {
+                color: var(--accent2);
+            }
+            .qstat.dl {
+                color: var(--accent);
+            }
+            .tui-foot {
+                display: flex;
+                justify-content: space-between;
+                padding: 9px 16px;
+                background: var(--panel2);
+                border-top: 1px solid var(--line-soft);
+                font-family: "JetBrains Mono", monospace;
+                font-size: 11px;
+                color: var(--muted);
+            }
+            .tui-foot .k {
+                color: var(--cream);
+                opacity: 0.75;
+            }
+
+            /* theme swatches */
+            .swatches {
+                display: flex;
+                align-items: center;
+                gap: 10px;
+                margin: 22px 0 8px;
+                flex-wrap: wrap;
+            }
+            .swatches span.lbl {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 11px;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.08em;
+                margin-right: 4px;
+            }
+            .swatch {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 12px;
+                display: flex;
+                align-items: center;
+                gap: 7px;
+                background: transparent;
+                border: 1px solid var(--line);
+                color: var(--muted);
+                padding: 6px 12px;
+                border-radius: 20px;
+                cursor: pointer;
+                transition: all 0.18s ease;
+            }
+            .swatch .dot {
+                width: 9px;
+                height: 9px;
+                border-radius: 50%;
+            }
+            .swatch[aria-pressed="true"] {
+                color: var(--cream);
+                border-color: var(--accent);
+                background: var(--accent-dim);
+            }
+            .swatch:hover {
+                border-color: var(--accent);
+                color: var(--cream);
+            }
+            .swatches-note {
+                font-size: 0.85rem;
+                color: var(--muted);
+                margin: 0 0 40px;
+            }
+
+            .cta-row {
+                display: flex;
+                gap: 14px;
+                flex-wrap: wrap;
+                margin: 26px 0 60px;
+            }
+            .btn {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 13.5px;
+                font-weight: 600;
+                padding: 12px 20px;
+                border-radius: var(--radius);
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                transition:
+                    transform 0.15s ease,
+                    background 0.15s ease,
+                    border-color 0.15s ease;
+            }
+            .btn:hover {
+                text-decoration: none;
+                transform: translateY(-1px);
+            }
+            .btn-primary {
+                background: var(--accent);
+                color: #14120f;
+            }
+            .btn-ghost {
+                border: 1px solid var(--line);
+                color: var(--cream);
+            }
+            .btn-ghost:hover {
+                border-color: var(--accent);
+            }
+
+            /* ---- sections ---- */
+            section {
+                padding: 56px 0;
+                border-top: 1px solid var(--line-soft);
+            }
+            .sec-label {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 12px;
+                color: var(--accent);
+                letter-spacing: 0.14em;
+                text-transform: uppercase;
+                margin-bottom: 8px;
+                transition: color 0.3s ease;
+            }
+            h2.sec-title {
+                font-size: clamp(1.5rem, 3vw, 2rem);
+                margin: 0 0 26px;
+            }
+            .prose {
+                color: var(--muted);
+                max-width: 70ch;
+            }
+            .prose strong {
+                color: var(--cream);
+                font-weight: 600;
+            }
+            .prose + .prose {
+                margin-top: 14px;
+            }
+
+            .grid2 {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+            }
+            @media (max-width: 680px) {
+                .grid2 {
+                    grid-template-columns: 1fr;
+                }
+            }
+            .card {
+                background: var(--panel);
+                border: 1px solid var(--line-soft);
+                border-radius: var(--radius);
+                padding: 20px;
+                transition:
+                    border-color 0.2s ease,
+                    transform 0.2s ease;
+            }
+            .card:hover {
+                border-color: var(--accent);
+                transform: translateY(-2px);
+            }
+            .card .tag {
+                font-family: "JetBrains Mono", monospace;
+                font-size: 11px;
+                color: var(--accent);
+                background: var(--accent-dim);
+                border: 1px solid var(--accent);
+                padding: 2px 7px;
+                border-radius: 3px;
+                display: inline-block;
+                margin-bottom: 11px;
+                transition:
+                    color 0.3s ease,
+                    border-color 0.3s ease;
+            }
+            .card h3 {
+                margin: 0 0 7px;
+                font-size: 1.02rem;
+            }
+            .card p {
+                margin: 0;
+                color: var(--muted);
+                font-size: 0.92rem;
+            }
+
+            table.cmdref {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 0.92rem;
+            }
+            table.cmdref th {
+                text-align: left;
+                font-family: "JetBrains Mono", monospace;
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                color: var(--muted);
+                padding: 0 12px 10px 0;
+                border-bottom: 1px solid var(--line);
+            }
+            table.cmdref td {
+                padding: 11px 12px 11px 0;
+                border-bottom: 1px solid var(--line-soft);
+                vertical-align: top;
+            }
+            table.cmdref code {
+                color: var(--accent);
+                font-size: 0.85rem;
+            }
+            table.cmdref .alias {
+                color: var(--muted);
+                font-size: 0.85rem;
+            }
+            table.cmdref .desc {
+                color: var(--muted);
+            }
+
+            pre.code-block {
+                background: #0d0c0a;
+                border: 1px solid var(--line);
+                border-radius: var(--radius);
+                padding: 16px 18px;
+                font-size: 13px;
+                overflow-x: auto;
+                color: var(--cream);
+                margin: 14px 0 0;
+            }
+            pre.code-block .c1 {
+                color: var(--muted);
+            }
+            pre.code-block .kw {
+                color: var(--accent);
+                transition: color 0.3s ease;
+            }
+            .install-grid {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 16px;
+                margin-top: 8px;
+            }
+            @media (max-width: 680px) {
+                .install-grid {
+                    grid-template-columns: 1fr;
+                }
+            }
+            h3.block-title {
+                font-size: 0.95rem;
+                margin: 0;
+                font-family: "JetBrains Mono", monospace;
+            }
+
+            .suite-list {
+                list-style: none;
+                margin: 0;
+                padding: 0;
+                border: 1px solid var(--line-soft);
+                border-radius: var(--radius);
+                overflow: hidden;
+            }
+            .suite-list li {
+                display: flex;
+                align-items: baseline;
+                gap: 16px;
+                padding: 16px 20px;
+                border-bottom: 1px solid var(--line-soft);
+                background: var(--panel);
+            }
+            .suite-list li:last-child {
+                border-bottom: none;
+            }
+            .suite-list .name {
+                font-family: "JetBrains Mono", monospace;
+                color: var(--cream);
+                font-weight: 600;
+                min-width: 190px;
+            }
+            .suite-list .current .name {
+                color: var(--accent);
+                transition: color 0.3s ease;
+            }
+            .suite-list p {
+                margin: 0;
+                color: var(--muted);
+                font-size: 0.92rem;
+            }
+
+            footer.foot {
+                padding: 40px 0 0;
+            }
+            footer .wrap > p {
+                color: var(--muted);
+                font-size: 0.85rem;
+                text-align: center;
+                margin: 0 0 24px;
+            }
+        </style>
+    </head>
+    <body>
+        <div class="statusline">
+            <div class="wrap">
+                <span class="left"
+                    >mangofetch <b>v0.5.2</b> — tropical edition</span
+                >
+                <span class="right"
+                    >↑↓ nav · space pause · : command · q quit</span
+                >
+            </div>
+        </div>
+
+        <nav class="topnav">
+            <div class="wrap">
+                <div class="brandmark">
+                    <span class="fruitdot" id="navdot"></span> mangofetch
+                </div>
+                <ul>
+                    <li><a href="#overview">Overview</a></li>
+                    <li><a href="#features">Features</a></li>
+                    <li><a href="#commands">Commands</a></li>
+                    <li><a href="#install">Install</a></li>
+                    <li>
+                        <a
+                            href="https://github.com/julesklord/mangofetch"
+                            target="_blank"
+                            rel="noopener"
+                            >Repo ↗</a
+                        >
+                    </li>
+                </ul>
+            </div>
+        </nav>
+
+        <main class="wrap">
+            <!-- HERO -->
+            <section class="hero" style="border-top: none">
+                <div class="kicker">Fast · Tropical · Pure Rust</div>
+                <h1>mangofetch</h1>
+                <p class="lede">
+                    Un motor de descargas headless para Rust y una TUI que se ve
+                    bien mientras trabaja. Sin GUI pesada, sin excusas — solo tu
+                    terminal y 1000+ plataformas.
+                </p>
+                <div class="badges">
+                    <span class="badge">Rust</span>
+                    <span class="badge">Tokio async</span>
+                    <span class="badge">ratatui</span>
+                    <span class="badge">GPL-3.0</span>
+                </div>
+
+                <!-- live TUI mockup -->
+                <div class="tui">
+                    <div class="tui-top">
+                        <span class="name"
+                            >~/downloads — <b>mangofetch</b></span
+                        >
+                        <span>PID 41203</span>
+                    </div>
+                    <div class="tabs">
+                        <div class="tab active">Queue</div>
+                        <div class="tab">Info</div>
+                        <div class="tab">Settings</div>
+                    </div>
+                    <div class="queue">
+                        <div class="qrow">
+                            <div>
+                                <div class="qname">
+                                    tutorial_reaper_mixing.mp4
+                                </div>
+                                <div class="site">youtube · 1080p</div>
+                            </div>
+                            <div class="qtrack">
+                                <div
+                                    class="qfill"
+                                    id="fill1"
+                                    style="width: 78%"
+                                ></div>
+                            </div>
+                            <div class="qstat dl">78% ↓</div>
+                        </div>
+                        <div class="qrow">
+                            <div>
+                                <div class="qname">
+                                    fearless_experience_demo.wav
+                                </div>
+                                <div class="site">soundcloud</div>
+                            </div>
+                            <div class="qtrack">
+                                <div
+                                    class="qfill"
+                                    id="fill2"
+                                    style="width: 100%"
+                                ></div>
+                            </div>
+                            <div class="qstat ok">done ✓</div>
+                        </div>
+                        <div class="qrow">
+                            <div>
+                                <div class="qname">linux-conf-2019.mkv</div>
+                                <div class="site">magnet · p2p</div>
+                            </div>
+                            <div class="qtrack">
+                                <div
+                                    class="qfill"
+                                    id="fill3"
+                                    style="width: 34%"
+                                ></div>
+                            </div>
+                            <div class="qstat dl">34% ↓</div>
+                        </div>
+                    </div>
+                    <div class="tui-foot">
+                        <span>3 items · 1 seeding</span>
+                        <span class="k">m mouse · vim-style : commands</span>
+                    </div>
+                </div>
+
+                <div
+                    class="swatches"
+                    role="group"
+                    aria-label="Selector de tema tropical"
+                >
+                    <span class="lbl">Theme</span>
+                    <button
+                        class="swatch"
+                        data-theme="mango"
+                        aria-pressed="true"
+                    >
+                        <span class="dot" style="background: #ff8a3d"></span
+                        >Mango
+                    </button>
+                    <button
+                        class="swatch"
+                        data-theme="pitaya"
+                        aria-pressed="false"
+                    >
+                        <span class="dot" style="background: #e8368f"></span
+                        >Pitaya
+                    </button>
+                    <button
+                        class="swatch"
+                        data-theme="guayaba"
+                        aria-pressed="false"
+                    >
+                        <span class="dot" style="background: #ff6f91"></span
+                        >Guayaba
+                    </button>
+                    <button
+                        class="swatch"
+                        data-theme="passionfruit"
+                        aria-pressed="false"
+                    >
+                        <span class="dot" style="background: #8c4fe0"></span
+                        >Passionfruit
+                    </button>
+                </div>
+                <p class="swatches-note">
+                    4 de los 11 temas de fruta tropical incluidos en la TUI
+                    real. Click para previsualizar.
+                </p>
+
+                <div class="cta-row">
+                    <a href="#install" class="btn btn-primary"
+                        >cargo install mangofetch-cli</a
+                    >
+                    <a
+                        href="https://github.com/julesklord/mangofetch"
+                        target="_blank"
+                        rel="noopener"
+                        class="btn btn-ghost"
+                        >Ver el repo</a
+                    >
+                </div>
+            </section>
+
+            <!-- OVERVIEW -->
+            <section id="overview">
+                <div class="sec-label">Overview</div>
+                <h2 class="sec-title">Un engine headless, con TUI encima</h2>
+                <p class="prose">
+                    En el centro vive <strong>mangofetch-core</strong>: un
+                    engine ligero y headless sobre Tokio y Reqwest, con una API
+                    basada en traits de Rust para hablar con YouTube, torrents
+                    (magnet), SoundCloud, Instagram y el resto de las 1000+
+                    plataformas vía <code>yt-dlp</code> y <code>ffmpeg</code>.
+                </p>
+                <p class="prose">
+                    Para todos los demás, mangofetch trae
+                    <strong>mangofetch-cli</strong>: una TUI construida con
+                    <code>clap</code> y <code>ratatui</code>, con soporte de
+                    mouse, configuración cómoda y 11 paletas de fruta tropical
+                    para no ver siempre la misma terminal gris.
+                </p>
+            </section>
+
+            <!-- SDK USAGE -->
+            <section id="sdk">
+                <div class="sec-label">Using as a Rust library</div>
+                <h2 class="sec-title">O sáltate la TUI y úsalo como SDK</h2>
+                <p class="prose">
+                    Si estás armando un bot de Discord, un servidor web o tu
+                    propia app, <code>mangofetch-core</code> se integra directo
+                    en tu código Rust.
+                </p>
+                <pre class="code-block">[dependencies]
+mangofetch-core = { git = "<span class="c1">https://github.com/julesklord/mangofetch-cli</span>" }</pre>
+            </section>
+
+            <!-- FEATURES -->
+            <section id="features">
+                <div class="sec-label">Key features</div>
+                <h2 class="sec-title">Lo que trae v0.5.2</h2>
+                <div class="grid2">
+                    <div class="card">
+                        <span class="tag">1000+</span>
+                        <h3>Soporte masivo de sitios</h3>
+                        <p>
+                            Integración directa con <code>yt-dlp</code> para
+                            casi cualquier plataforma de video que exista.
+                        </p>
+                    </div>
+                    <div class="card">
+                        <span class="tag">headless</span>
+                        <h3>Core desacoplado</h3>
+                        <p>
+                            Úsalo como librería Rust standalone, sin arrastrar
+                            ninguna interfaz.
+                        </p>
+                    </div>
+                    <div class="card">
+                        <span class="tag">tui</span>
+                        <h3>Dashboard interactivo</h3>
+                        <p>
+                            11 temas de fruta tropical (Mango, Pitaya, Guayaba,
+                            Passionfruit y más) y soporte completo de mouse.
+                        </p>
+                    </div>
+                    <div class="card">
+                        <span class="tag">vim</span>
+                        <h3>Comandos al estilo vim</h3>
+                        <p>
+                            Para power users: comandos rápidos con
+                            <code>:</code> sin soltar el teclado.
+                        </p>
+                    </div>
+                    <div class="card">
+                        <span class="tag">p2p</span>
+                        <h3>Torrents y magnet links</h3>
+                        <p>
+                            Comparte y descarga en redes descentralizadas vía
+                            <code>librqbit</code>.
+                        </p>
+                    </div>
+                    <div class="card">
+                        <span class="tag">smart-dl</span>
+                        <h3>Descargas multi-segmento</h3>
+                        <p>
+                            Manejo inteligente de conexiones para mantener
+                            velocidad y evitar rate limits.
+                        </p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- COMMANDS -->
+            <section id="commands">
+                <div class="sec-label">Command reference</div>
+                <h2 class="sec-title">Comandos principales</h2>
+                <table class="cmdref">
+                    <thead>
+                        <tr>
+                            <th>Comando</th>
+                            <th>Alias corto</th>
+                            <th>Qué hace</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <code>mangofetch download &lt;url&gt;</code>
+                            </td>
+                            <td class="alias">mango d</td>
+                            <td class="desc">Descarga un solo link.</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <code
+                                    >mangofetch download-multiple
+                                    &lt;file&gt;</code
+                                >
+                            </td>
+                            <td class="alias">mango dm</td>
+                            <td class="desc">
+                                Descarga varios links desde un archivo.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>mangofetch info &lt;url&gt;</code></td>
+                            <td class="alias">mango i</td>
+                            <td class="desc">
+                                Ve la info del link sin descargar.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>mangofetch list</code></td>
+                            <td class="alias">mango ls</td>
+                            <td class="desc">Muestra lo que hay en la cola.</td>
+                        </tr>
+                        <tr>
+                            <td><code>mangofetch clean</code></td>
+                            <td class="alias">mango c</td>
+                            <td class="desc">Limpia historial y caché.</td>
+                        </tr>
+                        <tr>
+                            <td><code>mangofetch config</code></td>
+                            <td class="alias">mango cfg</td>
+                            <td class="desc">Ajusta límites y rutas.</td>
+                        </tr>
+                        <tr>
+                            <td><code>mangofetch check</code></td>
+                            <td class="alias">mango ch</td>
+                            <td class="desc">
+                                Verifica que tus binarios externos funcionen.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>mangofetch update</code></td>
+                            <td class="alias">mango up</td>
+                            <td class="desc">
+                                Actualiza yt-dlp/ffmpeg a su última versión.
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><code>mangofetch logs</code></td>
+                            <td class="alias">mango log</td>
+                            <td class="desc">Revisa logs de la app.</td>
+                        </tr>
+                        <tr>
+                            <td><code>mangofetch about</code></td>
+                            <td class="alias">mango a</td>
+                            <td class="desc">Versión y licencia.</td>
+                        </tr>
+                    </tbody>
+                </table>
+                <p class="prose" style="margin-top: 16px; font-size: 0.85rem">
+                    Alias cortos marcados como <em>upcoming</em> en el roadmap
+                    oficial.
+                </p>
+            </section>
+
+            <!-- SUITE -->
+            <section id="suite">
+                <div class="sec-label">Core components</div>
+                <h2 class="sec-title">Arquitectura del workspace</h2>
+                <ul class="suite-list">
+                    <li class="current">
+                        <span class="name">mangofetch-core</span>
+                        <p>
+                            El corazón del sistema — cola de descargas, registry
+                            de plataformas y manejo de yt-dlp/ffmpeg.
+                        </p>
+                    </li>
+                    <li>
+                        <span class="name">mangofetch-cli</span>
+                        <p>
+                            Frontend con <code>clap</code> y
+                            <code>ratatui</code> — rápido, se ve bien, muestra
+                            todo en tiempo real.
+                        </p>
+                    </li>
+                    <li>
+                        <span class="name">mangofetch-plugin-sdk</span>
+                        <p>
+                            Toolkit para añadir features a mangofetch mientras
+                            corre.
+                        </p>
+                    </li>
+                </ul>
+            </section>
+
+            <!-- INSTALL -->
+            <section id="install">
+                <div class="sec-label">CLI/TUI installation</div>
+                <h2 class="sec-title">Instalación</h2>
+                <div class="install-grid">
+                    <div>
+                        <h3 class="block-title">Vía Cargo (recomendado)</h3>
+                        <pre
+                            class="code-block"
+                        ><span class="kw">cargo</span> install mangofetch-cli</pre>
+                    </div>
+                    <div>
+                        <h3 class="block-title">Desde el código fuente</h3>
+                        <pre
+                            class="code-block"
+                        ><span class="c1">git</span> clone https://github.com/julesklord/mangofetch-cli.git
+<span class="c1">cd</span> mangofetch-cli
+<span class="kw">cargo</span> build --release</pre>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="foot">
+            <div class="wrap">
+                <p>
+                    Fork de
+                    <a
+                        href="https://github.com/tonhowtf/omniget"
+                        target="_blank"
+                        rel="noopener"
+                        >OmniGet</a
+                    >
+                    · Construido por
+                    <a href="https://github.com/julesklord">Jules Martins</a> ·
+                    Licencia GPL-3.0
+                </p>
+            </div>
+            <div class="statusline">
+                <div class="wrap">
+                    <span>mangofetch — fast · tropical · pure rust</span>
+                    <span>2026</span>
+                </div>
+            </div>
+        </footer>
+
+        <script>
+            (function () {
+                const themes = {
+                    mango: { accent: "#FF8A3D", accent2: "#4A8F5C" },
+                    pitaya: { accent: "#E8368F", accent2: "#2FBF71" },
+                    guayaba: { accent: "#FF6F91", accent2: "#8FBF63" },
+                    passionfruit: { accent: "#8C4FE0", accent2: "#F2B705" },
+                };
+
+                const root = document.documentElement;
+                const swatches = document.querySelectorAll(".swatch");
+
+                function applyTheme(name) {
+                    const t = themes[name];
+                    if (!t) return;
+                    root.style.setProperty("--accent", t.accent);
+                    root.style.setProperty("--accent2", t.accent2);
+                    root.style.setProperty("--accent-dim", t.accent + "24");
+                    swatches.forEach((s) =>
+                        s.setAttribute(
+                            "aria-pressed",
+                            s.dataset.theme === name ? "true" : "false",
+                        ),
+                    );
+                }
+
+                swatches.forEach((s) => {
+                    s.addEventListener("click", () =>
+                        applyTheme(s.dataset.theme),
+                    );
+                });
+
+                applyTheme("mango");
+
+                // gentle progress tick on the queue mockup, purely decorative
+                const reduce = window.matchMedia(
+                    "(prefers-reduced-motion: reduce)",
+                ).matches;
+                if (!reduce) {
+                    const f1 = document.getElementById("fill1");
+                    let p = 78;
+                    setInterval(() => {
+                        p = p + 1;
+                        if (p > 96) p = 60;
+                        f1.style.width = p + "%";
+                    }, 900);
+                }
+            })();
+        </script>
+    </body>
+</html>
