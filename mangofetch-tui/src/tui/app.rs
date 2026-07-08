@@ -924,22 +924,45 @@ impl App {
 
             // Filter per tab and category
             self.items = match self.active_tab {
-                Tab::Downloads => items
-                    .iter()
-                    .filter(|i| match self.download_category {
-                        DownloadsCategory::All => true,
-                        DownloadsCategory::Active => matches!(i.status, QueueStatus::Active),
-                        DownloadsCategory::Queued => matches!(i.status, QueueStatus::Queued),
-                        DownloadsCategory::Completed => {
-                            matches!(i.status, QueueStatus::Complete { .. })
-                        }
-                        DownloadsCategory::Failed => {
-                            matches!(i.status, QueueStatus::Error { .. })
-                        }
-                    })
-                    // Optimization: Only clone/map the items that pass the view filter
-                    .map(|i| i.to_info())
-                    .collect(),
+                Tab::Downloads => {
+                    // Optimization: reuse existing QueueItemInfo to avoid cloning strings
+                    // for items already in the view.
+                    let old_items = std::mem::take(&mut self.items);
+                    let mut old_map: std::collections::HashMap<u64, QueueItemInfo> =
+                        old_items.into_iter().map(|info| (info.id, info)).collect();
+
+                    items
+                        .iter()
+                        .filter(|i| match self.download_category {
+                            DownloadsCategory::All => true,
+                            DownloadsCategory::Active => matches!(i.status, QueueStatus::Active),
+                            DownloadsCategory::Queued => matches!(i.status, QueueStatus::Queued),
+                            DownloadsCategory::Completed => {
+                                matches!(i.status, QueueStatus::Complete { .. })
+                            }
+                            DownloadsCategory::Failed => {
+                                matches!(i.status, QueueStatus::Error { .. })
+                            }
+                        })
+                        .map(|i| {
+                            if let Some(mut old_info) = old_map.remove(&i.id) {
+                                // Update dynamic fields
+                                old_info.status = i.status.clone();
+                                old_info.percent = i.percent;
+                                old_info.speed_bytes_per_sec = i.speed_bytes_per_sec;
+                                old_info.downloaded_bytes = i.downloaded_bytes;
+                                old_info.total_bytes = i.total_bytes;
+                                old_info.phase = i.phase.clone();
+                                old_info.file_size_bytes = i.file_size_bytes;
+                                old_info.file_count = i.file_count;
+                                // We avoid allocating url, platform, title, file_path, and thumbnail_url
+                                old_info
+                            } else {
+                                i.to_info()
+                            }
+                        })
+                        .collect()
+                }
                 _ => Vec::new(),
             };
         }
