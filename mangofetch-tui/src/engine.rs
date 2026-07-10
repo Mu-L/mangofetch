@@ -1,6 +1,6 @@
 use anyhow::Result;
 use mangofetch_core::core::dependencies::ensure_dependencies;
-use mangofetch_core::core::manager::queue::DownloadQueue;
+use mangofetch_core::core::manager::queue::{DownloadQueue, EnqueueRequest};
 use mangofetch_core::core::registry::PlatformRegistry;
 use std::sync::Arc;
 use tokio::sync::Mutex;
@@ -63,29 +63,20 @@ pub async fn enqueue_download_with_quality(
             for entry in &info.available_qualities {
                 let pid = mangofetch_core::core::manager::recovery::get_next_id();
                 let mut q = queue.lock().await;
-                q.enqueue(
+                q.enqueue_request(
                     pid,
-                    entry.url.clone(),
-                    platform_name.clone(),
-                    entry.label.clone(),
-                    output.clone(),
-                    None,
-                    quality.clone(),
-                    video_format.clone(),
-                    audio_format.clone(),
-                    audio_quality.clone(),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    downloader.clone(),
-                    deps.ytdlp.clone(),
-                    false,
+                    EnqueueRequest::new(
+                        entry.url.clone(),
+                        platform_name.clone(),
+                        entry.label.clone(),
+                        output.clone(),
+                        downloader.clone(),
+                    )
+                    .quality(quality.clone())
+                    .video_format(video_format.clone())
+                    .audio_format(audio_format.clone())
+                    .audio_quality(audio_quality.clone())
+                    .ytdlp_path(deps.ytdlp.clone()),
                 );
             }
             mangofetch_core::core::manager::queue::try_start_next(queue.clone()).await;
@@ -94,32 +85,24 @@ pub async fn enqueue_download_with_quality(
     }
 
     let mut q = queue.lock().await;
-    q.enqueue(
+    q.enqueue_request(
         id,
-        url.to_string(),
-        platform_name,
-        media_info
-            .as_ref()
-            .map(|i| i.title.clone())
-            .unwrap_or_else(|| url.to_string()),
-        output,
-        None,
-        quality,
-        video_format,
-        audio_format,
-        audio_quality,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        media_info,
-        None,
-        None,
-        downloader,
-        deps.ytdlp,
-        false,
+        EnqueueRequest::new(
+            url.to_string(),
+            platform_name,
+            media_info
+                .as_ref()
+                .map(|i| i.title.clone())
+                .unwrap_or_else(|| url.to_string()),
+            output,
+            downloader,
+        )
+        .quality(quality)
+        .video_format(video_format)
+        .audio_format(audio_format)
+        .audio_quality(audio_quality)
+        .media_info(media_info)
+        .ytdlp_path(deps.ytdlp),
     );
 
     drop(q);
@@ -169,29 +152,22 @@ pub async fn enqueue_download_with_overrides(
             for entry in &info.available_qualities {
                 let pid = mangofetch_core::core::manager::recovery::get_next_id();
                 let mut q = queue.lock().await;
-                q.enqueue(
+                q.enqueue_request(
                     pid,
-                    entry.url.clone(),
-                    platform_name.clone(),
-                    entry.label.clone(),
-                    output.clone(),
-                    download_mode.clone(),
-                    quality.clone(),
-                    video_format.clone(),
-                    audio_format.clone(),
-                    audio_quality.clone(),
-                    download_subtitles,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    downloader.clone(),
-                    deps.ytdlp.clone(),
-                    false,
+                    EnqueueRequest::new(
+                        entry.url.clone(),
+                        platform_name.clone(),
+                        entry.label.clone(),
+                        output.clone(),
+                        downloader.clone(),
+                    )
+                    .download_mode(download_mode.clone())
+                    .quality(quality.clone())
+                    .video_format(video_format.clone())
+                    .audio_format(audio_format.clone())
+                    .audio_quality(audio_quality.clone())
+                    .download_subtitles(download_subtitles)
+                    .ytdlp_path(deps.ytdlp.clone()),
                 );
             }
             mangofetch_core::core::manager::queue::try_start_next(queue.clone()).await;
@@ -200,32 +176,26 @@ pub async fn enqueue_download_with_overrides(
     }
 
     let mut q = queue.lock().await;
-    q.enqueue(
+    q.enqueue_request(
         id,
-        url.to_string(),
-        platform_name,
-        media_info
-            .as_ref()
-            .map(|i| i.title.clone())
-            .unwrap_or_else(|| url.to_string()),
-        output,
-        download_mode,
-        quality,
-        video_format,
-        audio_format,
-        audio_quality,
-        download_subtitles,
-        None,
-        None,
-        None,
-        None,
-        None,
-        media_info,
-        None,
-        None,
-        downloader,
-        deps.ytdlp,
-        false,
+        EnqueueRequest::new(
+            url.to_string(),
+            platform_name,
+            media_info
+                .as_ref()
+                .map(|i| i.title.clone())
+                .unwrap_or_else(|| url.to_string()),
+            output,
+            downloader,
+        )
+        .download_mode(download_mode)
+        .quality(quality)
+        .video_format(video_format)
+        .audio_format(audio_format)
+        .audio_quality(audio_quality)
+        .download_subtitles(download_subtitles)
+        .media_info(media_info)
+        .ytdlp_path(deps.ytdlp),
     );
 
     drop(q);

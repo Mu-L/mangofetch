@@ -1,4 +1,4 @@
-use mangofetch_core::core::manager::queue::DownloadQueue;
+use mangofetch_core::core::manager::queue::{DownloadQueue, EnqueueRequest};
 use mangofetch_core::core::traits::DownloadReporter;
 use mangofetch_core::models::queue::{QueueItemInfo, QueueStatus};
 use std::sync::Arc;
@@ -70,29 +70,9 @@ fn test_queue_lifecycle() {
     let downloader = Arc::new(MockDownloader);
 
     // 1. Enqueue
-    queue.enqueue(
+    queue.enqueue_request(
         1,
-        "url1".into(),
-        "mock".into(),
-        "title1".into(),
-        "dir".into(),
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        downloader.clone(),
-        None,
-        false,
+        EnqueueRequest::new("url1", "mock", "title1", "dir", downloader.clone()),
     );
     assert_eq!(queue.items.len(), 1);
     assert_eq!(queue.items[0].status, QueueStatus::Queued);

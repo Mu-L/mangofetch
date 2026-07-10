@@ -24,10 +24,10 @@ type SponsorBlockFn = Box<dyn Fn() -> bool + Send + Sync>;
 type SplitChaptersFn = Box<dyn Fn() -> bool + Send + Sync>;
 
 // Submodules (gradual refactor) — files created: ytdlp/find.rs, ytdlp/args.rs, ytdlp/progress.rs, ytdlp/binary.rs
-mod find;
 mod args;
-mod progress;
 mod binary;
+mod find;
+mod progress;
 
 // Consolidated config struct to group the various callback hooks.
 // ponytail: transitional — keeps old globals working while enabling explicit passing later.

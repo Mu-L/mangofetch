@@ -1306,19 +1306,18 @@ async fn spawn_download_inner(queue: Arc<tokio::sync::Mutex<DownloadQueue>>, ite
 
     let was_paused = {
         let q = queue.lock().await;
-        q.items
-            .iter()
-            .find(|i| i.id == item_id)
-            .map(|i| i.status == QueueStatus::Paused)
-            .unwrap_or(false)
+        let (paused, state) = {
+            let item = q.items.iter().find(|i| i.id == item_id);
+            let paused = item
+                .map(|i| i.status == QueueStatus::Paused)
+                .unwrap_or(false);
+            (paused, q.get_state())
+        };
+        emit_queue_state_from_state(&reporter, state);
+        paused
     };
 
     if was_paused {
-        let state = {
-            let q = queue.lock().await;
-            q.get_state()
-        };
-        emit_queue_state_from_state(&reporter, state);
         tokio::spawn(try_start_next(queue));
         return;
     }
@@ -1433,18 +1432,33 @@ pub async fn prefetch_info_with_emit(
 
 pub async fn try_start_next(queue: Arc<tokio::sync::Mutex<DownloadQueue>>) {
     let _timer_start = std::time::Instant::now();
-    let (next_ids, stagger, state_to_emit, reporter) = {
+    let (next_ids, stagger, state_to_emit, reporter, platforms_by_id) = {
         let mut q = queue.lock().await;
         let ids = q.next_queued_ids();
         for nid in &ids {
             q.mark_active(*nid);
         }
+        let platforms: HashMap<u64, String> = ids
+            .iter()
+            .filter_map(|id| {
+                q.items
+                    .iter()
+                    .find(|item| item.id == *id)
+                    .map(|item| (*id, item.config.platform.clone()))
+            })
+            .collect();
         let state = if !ids.is_empty() {
             Some(q.get_state())
         } else {
             None
         };
-        (ids, q.stagger_delay_ms, state, q.reporter.clone())
+        (
+            ids,
+            q.stagger_delay_ms,
+            state,
+            q.reporter.clone(),
+            platforms,
+        )
     };
 
     if let Some(state) = state_to_emit {
@@ -1470,14 +1484,11 @@ pub async fn try_start_next(queue: Arc<tokio::sync::Mutex<DownloadQueue>>) {
         }
 
         if i > 0 {
-            let item_platform = {
-                let q = queue.lock().await;
-                q.items
-                    .iter()
-                    .find(|item| item.id == nid)
-                    .map(|item| item.config.platform.clone())
-            };
-            let delay_ms = if item_platform.as_deref() == Some("youtube") {
+            let is_youtube = platforms_by_id
+                .get(&nid)
+                .map(|p| p == "youtube")
+                .unwrap_or(false);
+            let delay_ms = if is_youtube {
                 2000
             } else if batch_size > 3 {
                 stagger.max(1000)
@@ -1489,9 +1500,7 @@ pub async fn try_start_next(queue: Arc<tokio::sync::Mutex<DownloadQueue>>) {
             }
         }
         let queue_c = queue.clone();
-        tokio::spawn(async move {
-            tokio::spawn(spawn_download(queue_c, nid));
-        });
+        tokio::spawn(spawn_download(queue_c, nid));
     }
     tracing::debug!("[perf] try_start_next took {:?}", _timer_start.elapsed());
 }

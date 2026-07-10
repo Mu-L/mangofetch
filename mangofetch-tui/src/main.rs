@@ -12,7 +12,7 @@ use crate::output::{
 use crate::reporter::{BrutalistTheme, CLIReporter, CliTheme};
 use anyhow::Result;
 use clap::{Parser, Subcommand};
-use mangofetch_core::core::manager::queue::DownloadQueue;
+use mangofetch_core::core::manager::queue::{DownloadQueue, EnqueueRequest};
 use mangofetch_core::core::manager::recovery;
 use mangofetch_core::core::registry::PlatformRegistry;
 use mangofetch_core::core::traits::DownloadReporter;
@@ -789,29 +789,21 @@ async fn perform_download(
                 let entry_title = &entry.label;
 
                 let mut q = queue.lock().await;
-                q.enqueue(
+                q.enqueue_request(
                     id,
-                    entry_url.to_string(),
-                    platform_name.clone(),
-                    entry_title.clone(),
-                    output_dir.clone(),
-                    None,
-                    quality.clone(),
-                    video_format.clone(),
-                    audio_format.clone(),
-                    audio_quality.clone(),
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None,
-                    None, // We don't have full info for each entry yet
-                    None,
-                    None,
-                    downloader.clone(),
-                    deps.ytdlp.clone(),
-                    audio_only,
+                    EnqueueRequest::new(
+                        entry_url.clone(),
+                        platform_name.clone(),
+                        entry_title.clone(),
+                        output_dir.clone(),
+                        downloader.clone(),
+                    )
+                    .quality(quality.clone())
+                    .video_format(video_format.clone())
+                    .audio_format(audio_format.clone())
+                    .audio_quality(audio_quality.clone())
+                    .ytdlp_path(deps.ytdlp.clone())
+                    .from_hotkey(audio_only),
                 );
                 drop(q);
             }
@@ -841,32 +833,25 @@ async fn perform_download(
     let id = recovery::get_next_id();
 
     let mut q = queue.lock().await;
-    q.enqueue(
+    q.enqueue_request(
         id,
-        url.to_string(),
-        platform_name,
-        media_info
-            .as_ref()
-            .map(|i| i.title.clone())
-            .unwrap_or_else(|| url.to_string()),
-        output_dir,
-        None,
-        quality,
-        video_format,
-        audio_format,
-        audio_quality,
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-        media_info,
-        None,
-        None,
-        downloader,
-        deps.ytdlp,
-        audio_only,
+        EnqueueRequest::new(
+            url.to_string(),
+            platform_name,
+            media_info
+                .as_ref()
+                .map(|i| i.title.clone())
+                .unwrap_or_else(|| url.to_string()),
+            output_dir,
+            downloader,
+        )
+        .quality(quality)
+        .video_format(video_format)
+        .audio_format(audio_format)
+        .audio_quality(audio_quality)
+        .media_info(media_info)
+        .ytdlp_path(deps.ytdlp)
+        .from_hotkey(audio_only),
     );
 
     drop(q);

@@ -928,7 +928,7 @@ impl App {
             self.total_speed = items
                 .iter()
                 .filter(|i| matches!(i.status, QueueStatus::Active))
-                .map(|i| i.speed_bytes_per_sec)
+                .map(|i| i.progress.speed_bytes_per_sec)
                 .sum();
 
             // Filter per tab and category
@@ -957,13 +957,13 @@ impl App {
                             if let Some(mut old_info) = old_map.remove(&i.id) {
                                 // Update dynamic fields
                                 old_info.status = i.status.clone();
-                                old_info.percent = i.percent;
-                                old_info.speed_bytes_per_sec = i.speed_bytes_per_sec;
-                                old_info.downloaded_bytes = i.downloaded_bytes;
-                                old_info.total_bytes = i.total_bytes;
-                                old_info.phase = i.phase.clone();
-                                old_info.file_size_bytes = i.file_size_bytes;
-                                old_info.file_count = i.file_count;
+                                old_info.percent = i.progress.percent;
+                                old_info.speed_bytes_per_sec = i.progress.speed_bytes_per_sec;
+                                old_info.downloaded_bytes = i.progress.downloaded_bytes;
+                                old_info.total_bytes = i.progress.total_bytes;
+                                old_info.phase = i.progress.phase.clone();
+                                old_info.file_size_bytes = i.progress.file_size_bytes;
+                                old_info.file_count = i.progress.file_count;
                                 // We avoid allocating url, platform, title, file_path, and thumbnail_url
                                 old_info
                             } else {
@@ -1203,7 +1203,8 @@ mod tests {
         let queue = Arc::new(Mutex::new(DownloadQueue::new(1, None)));
         let registry = Arc::new(PlatformRegistry::new());
         let log_sink = new_log_sink();
-        App::new(queue, registry, log_sink)
+        let settings = AppSettings::default();
+        App::new(queue, registry, log_sink, settings)
     }
 
     #[test]
