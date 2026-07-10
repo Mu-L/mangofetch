@@ -52,13 +52,12 @@ pub struct MediaPreviewEvent {
     pub duration_seconds: Option<f64>,
 }
 
-pub struct QueueItem {
-    pub id: u64,
+/// Immutable configuration for a download, set at enqueue time.
+#[derive(Clone)]
+pub struct QueueItemConfig {
     pub url: String,
     pub platform: String,
     pub title: String,
-    pub status: QueueStatus,
-    pub cancel_token: CancellationToken,
     pub output_dir: String,
     pub download_mode: Option<String>,
     pub quality: Option<String>,
@@ -70,6 +69,15 @@ pub struct QueueItem {
     pub extra_headers: Option<std::collections::HashMap<String, String>>,
     pub page_url: Option<String>,
     pub user_agent: Option<String>,
+    pub download_subtitles: Option<bool>,
+    pub downloader: Arc<dyn PlatformDownloader>,
+    pub ytdlp_path: Option<PathBuf>,
+    pub from_hotkey: bool,
+}
+
+/// Mutable runtime state for an in-progress download.
+#[derive(Debug, Clone)]
+pub struct QueueItemProgress {
     pub percent: f64,
     pub speed_bytes_per_sec: f64,
     pub downloaded_bytes: u64,
@@ -78,31 +86,183 @@ pub struct QueueItem {
     pub file_size_bytes: Option<u64>,
     pub file_count: Option<u32>,
     pub media_info: Option<MediaInfo>,
-    pub downloader: Arc<dyn PlatformDownloader>,
-    pub ytdlp_path: Option<PathBuf>,
-    pub from_hotkey: bool,
     pub torrent_id: Option<usize>,
-    pub download_subtitles: Option<bool>,
     pub phase: String,
+}
+
+impl Default for QueueItemProgress {
+    fn default() -> Self {
+        Self {
+            percent: 0.0,
+            speed_bytes_per_sec: 0.0,
+            downloaded_bytes: 0,
+            total_bytes: None,
+            file_path: None,
+            file_size_bytes: None,
+            file_count: None,
+            media_info: None,
+            torrent_id: None,
+            phase: "Queued".to_string(),
+        }
+    }
+}
+
+/// Builder for adding items to the download queue without 23 positional parameters.
+pub struct EnqueueRequest {
+    pub config: QueueItemConfig,
+    pub media_info: Option<MediaInfo>,
+    pub total_bytes: Option<u64>,
+    pub file_count: Option<u32>,
+}
+
+impl EnqueueRequest {
+    pub fn new(
+        url: impl Into<String>,
+        platform: impl Into<String>,
+        title: impl Into<String>,
+        output_dir: impl Into<String>,
+        downloader: Arc<dyn PlatformDownloader>,
+    ) -> Self {
+        Self {
+            config: QueueItemConfig {
+                url: url.into(),
+                platform: platform.into(),
+                title: title.into(),
+                output_dir: output_dir.into(),
+                download_mode: None,
+                quality: None,
+                video_format: None,
+                audio_format: None,
+                audio_quality: None,
+                format_id: None,
+                referer: None,
+                extra_headers: None,
+                page_url: None,
+                user_agent: None,
+                download_subtitles: None,
+                downloader,
+                ytdlp_path: None,
+                from_hotkey: false,
+            },
+            media_info: None,
+            total_bytes: None,
+            file_count: None,
+        }
+    }
+
+    pub fn quality(mut self, quality: Option<String>) -> Self {
+        self.config.quality = quality;
+        self
+    }
+
+    pub fn video_format(mut self, format: Option<String>) -> Self {
+        self.config.video_format = format;
+        self
+    }
+
+    pub fn audio_format(mut self, format: Option<String>) -> Self {
+        self.config.audio_format = format;
+        self
+    }
+
+    pub fn audio_quality(mut self, quality: Option<String>) -> Self {
+        self.config.audio_quality = quality;
+        self
+    }
+
+    pub fn download_mode(mut self, mode: Option<String>) -> Self {
+        self.config.download_mode = mode;
+        self
+    }
+
+    pub fn format_id(mut self, id: Option<String>) -> Self {
+        self.config.format_id = id;
+        self
+    }
+
+    pub fn download_subtitles(mut self, subtitles: Option<bool>) -> Self {
+        self.config.download_subtitles = subtitles;
+        self
+    }
+
+    pub fn referer(mut self, referer: Option<String>) -> Self {
+        self.config.referer = referer;
+        self
+    }
+
+    pub fn extra_headers(
+        mut self,
+        headers: Option<std::collections::HashMap<String, String>>,
+    ) -> Self {
+        self.config.extra_headers = headers;
+        self
+    }
+
+    pub fn page_url(mut self, url: Option<String>) -> Self {
+        self.config.page_url = url;
+        self
+    }
+
+    pub fn user_agent(mut self, ua: Option<String>) -> Self {
+        self.config.user_agent = ua;
+        self
+    }
+
+    pub fn ytdlp_path(mut self, path: Option<PathBuf>) -> Self {
+        self.config.ytdlp_path = path;
+        self
+    }
+
+    pub fn from_hotkey(mut self, from_hotkey: bool) -> Self {
+        self.config.from_hotkey = from_hotkey;
+        self
+    }
+
+    pub fn media_info(mut self, info: Option<MediaInfo>) -> Self {
+        if let Some(ref i) = info {
+            self.total_bytes = i.file_size_bytes;
+        }
+        self.media_info = info;
+        self
+    }
+
+    pub fn total_bytes(mut self, bytes: Option<u64>) -> Self {
+        self.total_bytes = bytes;
+        self
+    }
+
+    pub fn file_count(mut self, count: Option<u32>) -> Self {
+        self.file_count = count;
+        self
+    }
+}
+
+pub struct QueueItem {
+    pub id: u64,
+    pub status: QueueStatus,
+    pub cancel_token: CancellationToken,
+    pub config: QueueItemConfig,
+    pub progress: QueueItemProgress,
 }
 
 impl QueueItem {
     pub fn to_info(&self) -> QueueItemInfo {
         QueueItemInfo {
             id: self.id,
-            url: self.url.clone(),
-            platform: self.platform.clone(),
-            title: self.title.clone(),
+            url: self.config.url.clone(),
+            platform: self.config.platform.clone(),
+            title: self.config.title.clone(),
             status: self.status.clone(),
-            percent: self.percent,
-            speed_bytes_per_sec: self.speed_bytes_per_sec,
-            downloaded_bytes: self.downloaded_bytes,
-            total_bytes: self.total_bytes,
-            phase: self.phase.clone(),
-            file_path: self.file_path.clone(),
-            file_size_bytes: self.file_size_bytes,
-            file_count: self.file_count,
+            percent: self.progress.percent,
+            speed_bytes_per_sec: self.progress.speed_bytes_per_sec,
+            downloaded_bytes: self.progress.downloaded_bytes,
+            total_bytes: self.progress.total_bytes,
+            phase: self.progress.phase.clone(),
+            file_path: self.progress.file_path.clone(),
+            file_size_bytes: self.progress.file_size_bytes,
+            file_count: self.progress.file_count,
             thumbnail_url: self
+                .progress
                 .media_info
                 .as_ref()
                 .and_then(|m| m.thumbnail_url.clone()),
@@ -152,36 +312,35 @@ impl DownloadQueue {
 
                 let q_item = QueueItem {
                     id: item.id,
-                    url: item.url,
-                    platform: item.platform,
-                    title: item.title,
                     status,
                     cancel_token: CancellationToken::new(),
-                    output_dir: item.output_dir,
-                    download_mode: item.download_mode,
-                    quality: item.quality,
-                    video_format: None,
-                    audio_format: None,
-                    audio_quality: None,
-                    format_id: item.format_id,
-                    referer: item.referer,
-                    extra_headers: None,
-                    page_url: None,
-                    user_agent: None,
-                    percent,
-                    speed_bytes_per_sec: 0.0,
-                    downloaded_bytes: 0,
-                    total_bytes: item.file_size_bytes,
-                    file_path: item.file_path,
-                    file_size_bytes: item.file_size_bytes,
-                    file_count: None,
-                    media_info: None,
-                    downloader: dl,
-                    ytdlp_path: None,
-                    from_hotkey: false,
-                    torrent_id: None,
-                    download_subtitles: None,
-                    phase: "Restored".to_string(),
+                    config: QueueItemConfig {
+                        url: item.url,
+                        platform: item.platform,
+                        title: item.title,
+                        output_dir: item.output_dir,
+                        download_mode: item.download_mode,
+                        quality: item.quality,
+                        format_id: item.format_id,
+                        referer: item.referer,
+                        video_format: None,
+                        audio_format: None,
+                        audio_quality: None,
+                        extra_headers: None,
+                        page_url: None,
+                        user_agent: None,
+                        download_subtitles: None,
+                        downloader: dl,
+                        ytdlp_path: None,
+                        from_hotkey: false,
+                    },
+                    progress: QueueItemProgress {
+                        percent,
+                        total_bytes: item.file_size_bytes,
+                        file_path: item.file_path,
+                        file_size_bytes: item.file_size_bytes,
+                        ..QueueItemProgress::default()
+                    },
                 };
                 self.items.push(q_item);
             }
@@ -191,17 +350,17 @@ impl DownloadQueue {
     fn sync_recovery(item: &QueueItem) {
         crate::core::manager::recovery::persist(crate::core::manager::recovery::RecoveryItem {
             id: item.id,
-            url: item.url.clone(),
-            title: item.title.clone(),
-            platform: item.platform.clone(),
-            output_dir: item.output_dir.clone(),
+            url: item.config.url.clone(),
+            title: item.config.title.clone(),
+            platform: item.config.platform.clone(),
+            output_dir: item.config.output_dir.clone(),
             status: item.status.clone(),
-            download_mode: item.download_mode.clone(),
-            quality: item.quality.clone(),
-            format_id: item.format_id.clone(),
-            referer: item.referer.clone(),
-            file_path: item.file_path.clone(),
-            file_size_bytes: item.file_size_bytes,
+            download_mode: item.config.download_mode.clone(),
+            quality: item.config.quality.clone(),
+            format_id: item.config.format_id.clone(),
+            referer: item.config.referer.clone(),
+            file_path: item.progress.file_path.clone(),
+            file_size_bytes: item.progress.file_size_bytes,
         });
     }
 
@@ -233,36 +392,51 @@ impl DownloadQueue {
     ) {
         let item = QueueItem {
             id,
-            url,
-            platform,
-            title,
             status: QueueStatus::Queued,
             cancel_token: CancellationToken::new(),
-            output_dir,
-            download_mode,
-            quality,
-            video_format,
-            audio_format,
-            audio_quality,
-            format_id,
-            referer,
-            extra_headers,
-            page_url,
-            user_agent,
-            percent: 0.0,
-            speed_bytes_per_sec: 0.0,
-            downloaded_bytes: 0,
-            total_bytes,
-            file_path: None,
-            file_size_bytes: None,
-            file_count,
-            media_info,
-            downloader,
-            ytdlp_path,
-            from_hotkey,
-            torrent_id: None,
-            download_subtitles,
-            phase: "Queued".to_string(),
+            config: QueueItemConfig {
+                url,
+                platform,
+                title,
+                output_dir,
+                download_mode,
+                quality,
+                video_format,
+                audio_format,
+                audio_quality,
+                format_id,
+                referer,
+                extra_headers,
+                page_url,
+                user_agent,
+                download_subtitles,
+                downloader,
+                ytdlp_path,
+                from_hotkey,
+            },
+            progress: QueueItemProgress {
+                total_bytes,
+                file_count,
+                media_info,
+                ..QueueItemProgress::default()
+            },
+        };
+        self.items.push(item);
+        Self::sync_recovery(self.items.last().unwrap());
+    }
+
+    pub fn enqueue_request(&mut self, id: u64, request: EnqueueRequest) {
+        let item = QueueItem {
+            id,
+            status: QueueStatus::Queued,
+            cancel_token: CancellationToken::new(),
+            config: request.config,
+            progress: QueueItemProgress {
+                total_bytes: request.total_bytes,
+                file_count: request.file_count,
+                media_info: request.media_info,
+                ..QueueItemProgress::default()
+            },
         };
         self.items.push(item);
         Self::sync_recovery(self.items.last().unwrap());
@@ -306,15 +480,15 @@ impl DownloadQueue {
         if let Some(item) = item {
             if success {
                 item.status = QueueStatus::Complete { success: true };
-                item.percent = 100.0;
+                item.progress.percent = 100.0;
             } else {
                 item.status = QueueStatus::Error {
                     message: error.unwrap_or_default(),
                 };
             }
-            item.file_path = file_path;
-            item.file_size_bytes = file_size_bytes;
-            item.speed_bytes_per_sec = 0.0;
+            item.progress.file_path = file_path;
+            item.progress.file_size_bytes = file_size_bytes;
+            item.progress.speed_bytes_per_sec = 0.0;
             Self::sync_recovery(item);
         }
     }
@@ -329,11 +503,11 @@ impl DownloadQueue {
         let item = self.items.iter_mut().find(|i| i.id == id);
         if let Some(item) = item {
             item.status = QueueStatus::Seeding;
-            item.percent = 100.0;
-            item.file_path = file_path;
-            item.file_size_bytes = file_size_bytes;
-            item.speed_bytes_per_sec = 0.0;
-            item.torrent_id = torrent_id;
+            item.progress.percent = 100.0;
+            item.progress.file_path = file_path;
+            item.progress.file_size_bytes = file_size_bytes;
+            item.progress.speed_bytes_per_sec = 0.0;
+            item.progress.torrent_id = torrent_id;
             Self::sync_recovery(item);
         }
     }
@@ -348,14 +522,14 @@ impl DownloadQueue {
         torrent_id: Option<usize>,
     ) {
         if let Some(item) = self.items.iter_mut().find(|i| i.id == id) {
-            item.percent = percent;
-            item.speed_bytes_per_sec = speed;
-            item.downloaded_bytes = downloaded;
+            item.progress.percent = percent;
+            item.progress.speed_bytes_per_sec = speed;
+            item.progress.downloaded_bytes = downloaded;
             if let Some(t) = total {
-                item.total_bytes = Some(t);
+                item.progress.total_bytes = Some(t);
             }
-            if torrent_id.is_some() && item.torrent_id.is_none() {
-                item.torrent_id = torrent_id;
+            if torrent_id.is_some() && item.progress.torrent_id.is_none() {
+                item.progress.torrent_id = torrent_id;
             }
         }
     }
@@ -363,11 +537,11 @@ impl DownloadQueue {
     pub fn pause(&mut self, id: u64) -> bool {
         if let Some(item) = self.items.iter_mut().find(|i| i.id == id) {
             if item.status == QueueStatus::Active {
-                if item.platform != "magnet" {
+                if item.config.platform != "magnet" {
                     item.cancel_token.cancel();
                 }
                 item.status = QueueStatus::Paused;
-                item.speed_bytes_per_sec = 0.0;
+                item.progress.speed_bytes_per_sec = 0.0;
                 Self::sync_recovery(item);
                 return true;
             }
@@ -379,7 +553,7 @@ impl DownloadQueue {
         let item = self.items.iter_mut().find(|i| i.id == id);
         if let Some(item) = item {
             if item.status == QueueStatus::Paused {
-                if item.platform == "magnet" {
+                if item.config.platform == "magnet" {
                     item.status = QueueStatus::Active;
                 } else {
                     item.status = QueueStatus::Queued;
@@ -408,30 +582,30 @@ impl DownloadQueue {
                     item.status = QueueStatus::Error {
                         message: "Cancelled".to_string(),
                     };
-                    item.speed_bytes_per_sec = 0.0;
+                    item.progress.speed_bytes_per_sec = 0.0;
                     Self::sync_recovery(item);
                     return (true, None);
                 }
                 QueueStatus::Seeding => {
-                    let tid = item.torrent_id;
+                    let tid = item.progress.torrent_id;
                     item.status = QueueStatus::Error {
                         message: "Cancelled".to_string(),
                     };
-                    item.speed_bytes_per_sec = 0.0;
+                    item.progress.speed_bytes_per_sec = 0.0;
                     Self::sync_recovery(item);
                     return (true, tid);
                 }
                 QueueStatus::Paused => {
                     item.cancel_token.cancel();
-                    let tid = if item.platform == "magnet" {
-                        item.torrent_id
+                    let tid = if item.config.platform == "magnet" {
+                        item.progress.torrent_id
                     } else {
                         None
                     };
                     item.status = QueueStatus::Error {
                         message: "Cancelled".to_string(),
                     };
-                    item.speed_bytes_per_sec = 0.0;
+                    item.progress.speed_bytes_per_sec = 0.0;
                     Self::sync_recovery(item);
                     return (true, tid);
                 }
@@ -453,11 +627,11 @@ impl DownloadQueue {
             if matches!(item.status, QueueStatus::Error { .. }) {
                 item.status = QueueStatus::Queued;
                 item.cancel_token = CancellationToken::new();
-                item.percent = 0.0;
-                item.speed_bytes_per_sec = 0.0;
-                item.downloaded_bytes = 0;
-                item.file_path = None;
-                item.file_size_bytes = None;
+                item.progress.percent = 0.0;
+                item.progress.speed_bytes_per_sec = 0.0;
+                item.progress.downloaded_bytes = 0;
+                item.progress.file_path = None;
+                item.progress.file_size_bytes = None;
                 Self::sync_recovery(item);
                 return true;
             }
@@ -479,13 +653,13 @@ impl DownloadQueue {
             if item.status == QueueStatus::Active {
                 item.cancel_token.cancel();
             }
-            if item.status == QueueStatus::Paused && item.platform == "magnet" {
+            if item.status == QueueStatus::Paused && item.config.platform == "magnet" {
                 item.cancel_token.cancel();
             }
             let torrent_id = if item.status == QueueStatus::Seeding
-                || (item.status == QueueStatus::Paused && item.platform == "magnet")
+                || (item.status == QueueStatus::Paused && item.config.platform == "magnet")
             {
-                item.torrent_id
+                item.progress.torrent_id
             } else {
                 None
             };
@@ -524,7 +698,7 @@ impl DownloadQueue {
 
     pub fn has_url(&self, url: &str) -> bool {
         self.items.iter().any(|i| {
-            i.url == url
+            i.config.url == url
                 && matches!(
                     i.status,
                     QueueStatus::Queued
@@ -672,6 +846,7 @@ struct DownloadContext {
     downloader: std::sync::Arc<dyn crate::platforms::traits::PlatformDownloader>,
     ytdlp_path: Option<std::path::PathBuf>,
     from_hotkey: bool,
+    settings: crate::models::settings::AppSettings,
 }
 
 async fn extract_download_context(
@@ -681,25 +856,26 @@ async fn extract_download_context(
     let q = queue.lock().await;
     let item = q.items.iter().find(|i| i.id == item_id)?;
     Some(DownloadContext {
-        url: item.url.clone(),
-        output_dir: item.output_dir.clone(),
-        download_mode: item.download_mode.clone(),
-        quality: item.quality.clone(),
-        video_format: item.video_format.clone(),
-        audio_format: item.audio_format.clone(),
-        audio_quality: item.audio_quality.clone(),
-        download_subtitles: item.download_subtitles,
-        format_id: item.format_id.clone(),
-        referer: item.referer.clone(),
-        extra_headers: item.extra_headers.clone(),
-        page_url: item.page_url.clone(),
-        user_agent: item.user_agent.clone(),
+        url: item.config.url.clone(),
+        output_dir: item.config.output_dir.clone(),
+        download_mode: item.config.download_mode.clone(),
+        quality: item.config.quality.clone(),
+        video_format: item.config.video_format.clone(),
+        audio_format: item.config.audio_format.clone(),
+        audio_quality: item.config.audio_quality.clone(),
+        download_subtitles: item.config.download_subtitles,
+        format_id: item.config.format_id.clone(),
+        referer: item.config.referer.clone(),
+        extra_headers: item.config.extra_headers.clone(),
+        page_url: item.config.page_url.clone(),
+        user_agent: item.config.user_agent.clone(),
         cancel_token: item.cancel_token.clone(),
-        media_info: item.media_info.clone(),
-        platform_name: item.platform.clone(),
-        downloader: item.downloader.clone(),
-        ytdlp_path: item.ytdlp_path.clone(),
-        from_hotkey: item.from_hotkey,
+        media_info: item.progress.media_info.clone(),
+        platform_name: item.config.platform.clone(),
+        downloader: item.config.downloader.clone(),
+        ytdlp_path: item.config.ytdlp_path.clone(),
+        from_hotkey: item.config.from_hotkey,
+        settings: crate::models::settings::AppSettings::load_from_disk(),
     })
 }
 
@@ -787,8 +963,8 @@ async fn prepare_media_info(
     let state = {
         let mut q = queue.lock().await;
         if let Some(item) = q.items.iter_mut().find(|i| i.id == item_id) {
-            item.title = info.title.clone();
-            item.total_bytes = info.file_size_bytes;
+            item.config.title = info.title.clone();
+            item.progress.total_bytes = info.file_size_bytes;
             let fc = if info.media_type == crate::models::media::MediaType::Carousel
                 || info.media_type == crate::models::media::MediaType::Playlist
             {
@@ -796,8 +972,8 @@ async fn prepare_media_info(
             } else {
                 1
             };
-            item.file_count = Some(fc);
-            item.media_info = Some(info.clone());
+            item.progress.file_count = Some(fc);
+            item.progress.media_info = Some(info.clone());
         }
         q.get_state()
     };
@@ -828,7 +1004,7 @@ fn build_download_options(
     crate::models::media::DownloadOptions,
     std::sync::Arc<tokio::sync::Mutex<Option<usize>>>,
 ) {
-    let settings = crate::models::settings::AppSettings::load_from_disk();
+    let settings = &ctx.settings;
     let tmpl = settings.download.filename_template.clone();
     let mut final_output_dir = std::path::PathBuf::from(&ctx.output_dir);
     if settings.download.organize_by_platform {
@@ -881,7 +1057,7 @@ async fn handle_download_result(
     reporter: Option<crate::core::traits::SharedReporter>,
     result: anyhow::Result<crate::models::media::DownloadResult>,
 ) {
-    let settings = crate::models::settings::AppSettings::load_from_disk();
+    let settings = &ctx.settings;
     match result {
         Ok(dl) => {
             if settings.download.embed_metadata
@@ -1299,7 +1475,7 @@ pub async fn try_start_next(queue: Arc<tokio::sync::Mutex<DownloadQueue>>) {
                 q.items
                     .iter()
                     .find(|item| item.id == nid)
-                    .map(|item| item.platform.clone())
+                    .map(|item| item.config.platform.clone())
             };
             let delay_ms = if item_platform.as_deref() == Some("youtube") {
                 2000
