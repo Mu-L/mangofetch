@@ -286,6 +286,8 @@ pub struct App {
     pub mode: Mode,
     pub active_tab: Tab,
     pub running: bool,
+    // Loaded app settings (single source of truth for UI)
+    pub settings: AppSettings,
 
     /// Items shown in the current view (filtered from full queue state)
     pub items: Vec<QueueItemInfo>,
@@ -387,8 +389,8 @@ impl App {
         queue: Arc<Mutex<DownloadQueue>>,
         registry: Arc<PlatformRegistry>,
         log_sink: LogSink,
+        settings: AppSettings,
     ) -> Self {
-        let settings = AppSettings::load_from_disk();
         let theme = Self::make_theme(&settings.appearance.tui_theme);
         let (tx, rx) = tokio::sync::mpsc::unbounded_channel();
         let mut sys_info = sysinfo::System::new();
@@ -407,6 +409,7 @@ impl App {
             theme,
             theme_name: settings.appearance.tui_theme.clone(),
             statusbar_modules: settings.appearance.statusbar_modules.clone(),
+            settings: settings.clone(),
             version: env!("CARGO_PKG_VERSION").to_string(),
             current_time: Local::now().format("%H:%M").to_string(),
             use_nerd_fonts: settings.appearance.use_nerd_fonts,
@@ -607,19 +610,18 @@ impl App {
             _ => "sidebar",
         };
         self.layout = next.to_string();
-        let mut settings = AppSettings::load_from_disk();
-        settings.appearance.layout = next.to_string();
-        let _ = settings.save_to_disk();
+        // Use in-memory settings and persist
+        self.settings.appearance.layout = next.to_string();
+        let _ = self.settings.save_to_disk();
         self.set_status(format!("Layout: {}", self.layout.to_uppercase()));
     }
 
     pub fn toggle_setting(&mut self) {
-        let mut settings = AppSettings::load_from_disk();
         let kind = SettingKind::ALL[self.settings_index % SettingKind::ALL.len()];
 
         match kind {
             SettingKind::TuiTheme => {
-                let next = match settings.appearance.tui_theme.as_str() {
+                let next = match self.settings.appearance.tui_theme.as_str() {
                     "mango" => "pitaya",
                     "pitaya" => "coconut",
                     "coconut" => "guayaba",
@@ -632,29 +634,30 @@ impl App {
                     "kiwi" => "mango",
                     _ => "mango",
                 };
-                settings.appearance.tui_theme = next.to_string();
+                self.settings.appearance.tui_theme = next.to_string();
                 self.theme = Self::make_theme(next);
                 self.theme_name = next.to_string();
             }
             SettingKind::UseNerdFonts => {
-                settings.appearance.use_nerd_fonts = !settings.appearance.use_nerd_fonts;
-                self.use_nerd_fonts = settings.appearance.use_nerd_fonts;
+                self.settings.appearance.use_nerd_fonts = !self.settings.appearance.use_nerd_fonts;
+                self.use_nerd_fonts = self.settings.appearance.use_nerd_fonts;
             }
             SettingKind::EnableAnimations => {
-                settings.appearance.enable_animations = !settings.appearance.enable_animations;
-                self.enable_animations = settings.appearance.enable_animations;
+                self.settings.appearance.enable_animations =
+                    !self.settings.appearance.enable_animations;
+                self.enable_animations = self.settings.appearance.enable_animations;
             }
             SettingKind::NavigationLayout => {
-                let next = match settings.appearance.layout.as_str() {
+                let next = match self.settings.appearance.layout.as_str() {
                     "sidebar" => "topbar",
                     _ => "sidebar",
                 };
-                settings.appearance.layout = next.to_string();
+                self.settings.appearance.layout = next.to_string();
                 self.layout = next.to_string();
             }
             SettingKind::MaxDownloads => {
-                settings.advanced.max_concurrent_downloads =
-                    match settings.advanced.max_concurrent_downloads {
+                self.settings.advanced.max_concurrent_downloads =
+                    match self.settings.advanced.max_concurrent_downloads {
                         1 => 2,
                         2 => 3,
                         3 => 5,
@@ -662,48 +665,56 @@ impl App {
                     };
             }
             SettingKind::VideoQuality => {
-                settings.download.video_quality = match settings.download.video_quality.as_str() {
-                    "best" => "1080p",
-                    "1080p" => "720p",
-                    "720p" => "480p",
-                    "480p" => "360p",
-                    _ => "best",
-                }
-                .to_string();
+                self.settings.download.video_quality =
+                    match self.settings.download.video_quality.as_str() {
+                        "best" => "1080p",
+                        "1080p" => "720p",
+                        "720p" => "480p",
+                        "480p" => "360p",
+                        _ => "best",
+                    }
+                    .to_string();
             }
             SettingKind::AlwaysAskConfirm => {
-                settings.download.always_ask_confirm = !settings.download.always_ask_confirm;
+                self.settings.download.always_ask_confirm =
+                    !self.settings.download.always_ask_confirm;
             }
             SettingKind::OrganizeByPlatform => {
-                settings.download.organize_by_platform = !settings.download.organize_by_platform;
+                self.settings.download.organize_by_platform =
+                    !self.settings.download.organize_by_platform;
             }
             SettingKind::SkipExisting => {
-                settings.download.skip_existing = !settings.download.skip_existing;
+                self.settings.download.skip_existing = !self.settings.download.skip_existing;
             }
             SettingKind::DownloadSubtitles => {
-                settings.download.download_subtitles = !settings.download.download_subtitles;
+                self.settings.download.download_subtitles =
+                    !self.settings.download.download_subtitles;
             }
             SettingKind::DownloadAttachments => {
-                settings.download.download_attachments = !settings.download.download_attachments;
+                self.settings.download.download_attachments =
+                    !self.settings.download.download_attachments;
             }
             SettingKind::DownloadDescriptions => {
-                settings.download.download_descriptions = !settings.download.download_descriptions;
+                self.settings.download.download_descriptions =
+                    !self.settings.download.download_descriptions;
             }
             SettingKind::SponsorBlock => {
-                settings.download.youtube_sponsorblock = !settings.download.youtube_sponsorblock;
+                self.settings.download.youtube_sponsorblock =
+                    !self.settings.download.youtube_sponsorblock;
             }
             SettingKind::SplitByChapters => {
-                settings.download.split_by_chapters = !settings.download.split_by_chapters;
+                self.settings.download.split_by_chapters =
+                    !self.settings.download.split_by_chapters;
             }
             SettingKind::EmbedMetadata => {
-                settings.download.embed_metadata = !settings.download.embed_metadata;
+                self.settings.download.embed_metadata = !self.settings.download.embed_metadata;
             }
             SettingKind::EmbedThumbnail => {
-                settings.download.embed_thumbnail = !settings.download.embed_thumbnail;
+                self.settings.download.embed_thumbnail = !self.settings.download.embed_thumbnail;
             }
             SettingKind::MaxConcurrentSegments => {
-                settings.advanced.max_concurrent_segments =
-                    match settings.advanced.max_concurrent_segments {
+                self.settings.advanced.max_concurrent_segments =
+                    match self.settings.advanced.max_concurrent_segments {
                         8 => 16,
                         16 => 32,
                         32 => 64,
@@ -711,18 +722,18 @@ impl App {
                     };
             }
             SettingKind::MaxRetries => {
-                settings.advanced.max_retries = (settings.advanced.max_retries + 1) % 10;
+                self.settings.advanced.max_retries = (self.settings.advanced.max_retries + 1) % 10;
             }
             SettingKind::ConcurrentFragments => {
-                settings.advanced.concurrent_fragments =
-                    match settings.advanced.concurrent_fragments {
+                self.settings.advanced.concurrent_fragments =
+                    match self.settings.advanced.concurrent_fragments {
                         4 => 8,
                         8 => 16,
                         _ => 4,
                     };
             }
             SettingKind::StaggerDelay => {
-                settings.advanced.stagger_delay_ms = match settings.advanced.stagger_delay_ms {
+                self.settings.advanced.stagger_delay_ms = match self.settings.advanced.stagger_delay_ms {
                     0 => 100,
                     100 => 250,
                     250 => 500,
@@ -730,13 +741,13 @@ impl App {
                 };
             }
             SettingKind::ClipboardDetection => {
-                settings.download.clipboard_detection = !settings.download.clipboard_detection;
+                self.settings.download.clipboard_detection = !self.settings.download.clipboard_detection;
             }
             SettingKind::ProxyEnabled => {
-                settings.proxy.enabled = !settings.proxy.enabled;
+                self.settings.proxy.enabled = !self.settings.proxy.enabled;
             }
             SettingKind::PortableMode => {
-                settings.portable_mode = !settings.portable_mode;
+                self.settings.portable_mode = !self.settings.portable_mode;
             }
             SettingKind::StatusbarMode
             | SettingKind::StatusbarTab
@@ -762,11 +773,11 @@ impl App {
                 } else {
                     self.statusbar_modules.push(name.to_string());
                 }
-                settings.appearance.statusbar_modules = self.statusbar_modules.clone();
+                self.settings.appearance.statusbar_modules = self.statusbar_modules.clone();
             }
         }
 
-        let _ = settings.save_to_disk();
+        let _ = self.settings.save_to_disk();
         self.set_status(format!("Updated: {}", kind.label()));
     }
 
@@ -817,9 +828,8 @@ impl App {
             }
         }
 
-        let mut settings = AppSettings::load_from_disk();
-        settings.appearance.statusbar_modules = self.statusbar_modules.clone();
-        let _ = settings.save_to_disk();
+        self.settings.appearance.statusbar_modules = self.statusbar_modules.clone();
+        let _ = self.settings.save_to_disk();
         self.set_status(format!("Reordered modules: {:?}", self.statusbar_modules));
     }
 
@@ -832,9 +842,8 @@ impl App {
                     self.is_fetching_preview = false;
                     match result {
                         Ok(info) => {
-                            let settings = AppSettings::load_from_disk();
                             if let Some(closest) =
-                                info.get_closest_quality(&settings.download.video_quality)
+                                info.get_closest_quality(&self.settings.download.video_quality)
                             {
                                 self.confirm_quality_idx = info
                                     .available_qualities
@@ -845,7 +854,7 @@ impl App {
                                 self.confirm_quality_idx = 0;
                             }
                             self.confirm_focused_field = 0;
-                            self.confirm_download_subtitles = settings.download.download_subtitles;
+                            self.confirm_download_subtitles = self.settings.download.download_subtitles;
                             self.confirm_download_mode = if info.media_type
                                 == mangofetch_core::models::media::MediaType::Audio
                             {

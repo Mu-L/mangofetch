@@ -1,6 +1,6 @@
 fn render_settings(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
-    let settings = mangofetch_core::models::settings::AppSettings::load_from_disk();
+    let settings = &app.settings;
 
     let rows: Vec<Row> = SettingKind::ALL
         .iter()

@@ -29,7 +29,9 @@ pub async fn run(
 
     let mut terminal_handler = TerminalHandler::new()?;
     terminal_handler.terminal().clear()?;
-    let mut app = App::new(queue, registry, log_sink);
+    // Load settings once and pass into App to avoid repeated disk reads
+    let settings = mangofetch_core::models::settings::AppSettings::load_from_disk();
+    let mut app = App::new(queue, registry, log_sink, settings);
 
     while app.running {
         app.drain_reporter_logs();
