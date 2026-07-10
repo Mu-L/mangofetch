@@ -23,6 +23,57 @@ type TranslateMetadataFn = Box<dyn Fn() -> Option<String> + Send + Sync>;
 type SponsorBlockFn = Box<dyn Fn() -> bool + Send + Sync>;
 type SplitChaptersFn = Box<dyn Fn() -> bool + Send + Sync>;
 
+// Submodules (gradual refactor) — files created: ytdlp/find.rs, ytdlp/args.rs, ytdlp/progress.rs, ytdlp/binary.rs
+mod find;
+mod args;
+mod progress;
+mod binary;
+
+// Consolidated config struct to group the various callback hooks.
+// ponytail: transitional — keeps old globals working while enabling explicit passing later.
+pub struct YtdlpConfig {
+    pub ext_cookie_path_fn: Option<ExtCookiePathFn>,
+    pub global_cookie_file_fn: Option<GlobalCookieFileFn>,
+    pub cookies_from_browser_fn: Option<CookiesFromBrowserFn>,
+    pub manual_cookie_header_fn: Option<ManualCookieHeaderFn>,
+    pub ext_referer_fn: Option<ExtRefererFn>,
+    pub include_auto_subs_fn: Option<IncludeAutoSubsFn>,
+    pub translate_metadata_fn: Option<TranslateMetadataFn>,
+    pub sponsorblock_fn: Option<SponsorBlockFn>,
+    pub split_chapters_fn: Option<SplitChaptersFn>,
+}
+
+static YTDLP_CONFIG: OnceLock<YtdlpConfig> = OnceLock::new();
+
+pub fn set_ytdlp_config(cfg: YtdlpConfig) {
+    let _ = YTDLP_CONFIG.set(cfg);
+}
+
+pub fn ytdlp_config() -> Option<&'static YtdlpConfig> {
+    YTDLP_CONFIG.get()
+}
+
+// Reusable helper to spawn a blocking thread that runs a tokio current-thread runtime
+// and executes the provided async closure. Reduces duplicated thread+runtime boilerplate.
+// ponytail: single small helper, ok for now.
+pub fn spawn_blocking_async<F, Fut>(name: &str, f: F)
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: std::future::Future<Output = ()> + Send + 'static,
+{
+    let name = name.to_string();
+    std::thread::Builder::new()
+        .name(name)
+        .spawn(move || {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .expect("blocking async runtime");
+            rt.block_on(f());
+        })
+        .ok();
+}
+
 static EXT_COOKIE_PATH_FN: OnceLock<ExtCookiePathFn> = OnceLock::new();
 static GLOBAL_COOKIE_FILE_FN: OnceLock<GlobalCookieFileFn> = OnceLock::new();
 static COOKIES_FROM_BROWSER_FN: OnceLock<CookiesFromBrowserFn> = OnceLock::new();
@@ -497,18 +548,9 @@ pub async fn ensure_ytdlp(reporter: Option<&dyn DownloadReporter>) -> anyhow::Re
             match download_ytdlp_binary(reporter).await {
                 Ok(path) => {
                     reset_ytdlp_cache();
-                    std::thread::Builder::new()
-                        .name("js-runtime-check".into())
-                        .spawn(|| {
-                            let rt = tokio::runtime::Builder::new_current_thread()
-                                .enable_all()
-                                .build()
-                                .expect("js-runtime runtime");
-                            rt.block_on(async {
-                                crate::core::dependencies::ensure_js_runtime(None).await;
-                            });
-                        })
-                        .ok();
+                    spawn_blocking_async("js-runtime-check", || async {
+                        crate::core::dependencies::ensure_js_runtime(None).await;
+                    });
                     tracing::debug!("[perf] ensure_ytdlp took {:?}", _timer_start.elapsed());
                     return Ok(path);
                 }
@@ -524,30 +566,12 @@ pub async fn ensure_ytdlp(reporter: Option<&dyn DownloadReporter>) -> anyhow::Re
 
     if let Some(path) = find_ytdlp_cached().await {
         let path_clone = path.clone();
-        std::thread::Builder::new()
-            .name("ytdlp-freshness".into())
-            .spawn(move || {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .expect("freshness runtime");
-                rt.block_on(async move {
-                    check_ytdlp_freshness(&path_clone).await;
-                });
-            })
-            .ok();
-        std::thread::Builder::new()
-            .name("js-runtime-check".into())
-            .spawn(|| {
-                let rt = tokio::runtime::Builder::new_current_thread()
-                    .enable_all()
-                    .build()
-                    .expect("js-runtime runtime");
-                rt.block_on(async {
-                    crate::core::dependencies::ensure_js_runtime(None).await;
-                });
-            })
-            .ok();
+        spawn_blocking_async("ytdlp-freshness", move || async move {
+            check_ytdlp_freshness(&path_clone).await;
+        });
+        spawn_blocking_async("js-runtime-check", || async {
+            crate::core::dependencies::ensure_js_runtime(None).await;
+        });
         tracing::debug!("[perf] ensure_ytdlp took {:?}", _timer_start.elapsed());
         return Ok(path);
     }
@@ -559,18 +583,9 @@ pub async fn ensure_ytdlp(reporter: Option<&dyn DownloadReporter>) -> anyhow::Re
 
     let path = download_ytdlp_binary(reporter).await?;
     reset_ytdlp_cache();
-    std::thread::Builder::new()
-        .name("js-runtime-check".into())
-        .spawn(|| {
-            let rt = tokio::runtime::Builder::new_current_thread()
-                .enable_all()
-                .build()
-                .expect("js-runtime runtime");
-            rt.block_on(async {
-                crate::core::dependencies::ensure_js_runtime(None).await;
-            });
-        })
-        .ok();
+    spawn_blocking_async("js-runtime-check", || async {
+        crate::core::dependencies::ensure_js_runtime(None).await;
+    });
     tracing::debug!("[perf] ensure_ytdlp took {:?}", _timer_start.elapsed());
     Ok(path)
 }
