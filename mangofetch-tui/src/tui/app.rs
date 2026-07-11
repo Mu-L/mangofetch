@@ -733,15 +733,17 @@ impl App {
                     };
             }
             SettingKind::StaggerDelay => {
-                self.settings.advanced.stagger_delay_ms = match self.settings.advanced.stagger_delay_ms {
-                    0 => 100,
-                    100 => 250,
-                    250 => 500,
-                    _ => 0,
-                };
+                self.settings.advanced.stagger_delay_ms =
+                    match self.settings.advanced.stagger_delay_ms {
+                        0 => 100,
+                        100 => 250,
+                        250 => 500,
+                        _ => 0,
+                    };
             }
             SettingKind::ClipboardDetection => {
-                self.settings.download.clipboard_detection = !self.settings.download.clipboard_detection;
+                self.settings.download.clipboard_detection =
+                    !self.settings.download.clipboard_detection;
             }
             SettingKind::ProxyEnabled => {
                 self.settings.proxy.enabled = !self.settings.proxy.enabled;
@@ -854,7 +856,8 @@ impl App {
                                 self.confirm_quality_idx = 0;
                             }
                             self.confirm_focused_field = 0;
-                            self.confirm_download_subtitles = self.settings.download.download_subtitles;
+                            self.confirm_download_subtitles =
+                                self.settings.download.download_subtitles;
                             self.confirm_download_mode = if info.media_type
                                 == mangofetch_core::models::media::MediaType::Audio
                             {
