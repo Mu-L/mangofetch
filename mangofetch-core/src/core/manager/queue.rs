@@ -1127,16 +1127,16 @@ async fn handle_download_result(
         }
         Err(e) => {
             let raw_err = format!("{}", e);
-            let (category, hint) = crate::core::errors::classify_download_error(&raw_err);
-            let user_msg = if category != "unknown" {
-                format!("{} ({})", hint, raw_err)
+            let dl_error = crate::core::errors::DownloadError::from_message(&raw_err);
+            let user_msg = if dl_error.code() != "unknown" {
+                format!("{} ({})", dl_error.hint(), raw_err)
             } else {
                 raw_err.clone()
             };
             tracing::error!(
                 "Download error '{}' [{}]: {}",
                 ctx.platform_name,
-                category,
+                dl_error.code(),
                 raw_err
             );
             let state = {
