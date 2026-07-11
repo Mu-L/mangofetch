@@ -339,7 +339,6 @@ pub fn format_about_info(
     )
 }
 
-
 pub fn format_about_changelog(theme: &Arc<dyn CliTheme>) -> String {
     format!(
         "\n{margin}{info}Changes{reset}  {accent}Project history{reset}\n{margin}{bar}\n\
