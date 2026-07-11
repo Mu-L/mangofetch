@@ -2372,6 +2372,7 @@ dependencies = [
  "cbc",
  "chrono",
  "cipher",
+ "dashmap",
  "dirs",
  "futures",
  "hex",
