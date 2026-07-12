@@ -16,3 +16,6 @@
 ## 2024-05-31 - [Consolidate redundant iterations in TUI refresh_data]
 **Learning:** In `mangofetch-tui`'s `refresh_data` loop, computing active counts, queued counts, etc, was being done with multiple filter/count passes (5 passes total).
 **Action:** Always combine multiple iterations over the same collection into a single pass to save CPU overhead in hot paths like TUI ticks.
+## 2024-07-12 - [Avoid unconditional allocations in TUI hot paths]
+**Learning:** In TUI update loops that run frequently (e.g., `refresh_data`), unconditionally cloning strings or structs for fields that haven't changed creates significant unnecessary memory allocation overhead.
+**Action:** When synchronizing state into view models, always check if fields have changed (e.g., `if old_info.status != i.status`) before calling `.clone()` to allocate new strings.

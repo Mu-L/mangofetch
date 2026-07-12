@@ -956,12 +956,17 @@ impl App {
                         .map(|i| {
                             if let Some(mut old_info) = old_map.remove(&i.id) {
                                 // Update dynamic fields
-                                old_info.status = i.status.clone();
+                                // Optimization: Avoid allocating status and phase strings unless changed
+                                if old_info.status != i.status {
+                                    old_info.status = i.status.clone();
+                                }
                                 old_info.percent = i.progress.percent;
                                 old_info.speed_bytes_per_sec = i.progress.speed_bytes_per_sec;
                                 old_info.downloaded_bytes = i.progress.downloaded_bytes;
                                 old_info.total_bytes = i.progress.total_bytes;
-                                old_info.phase = i.progress.phase.clone();
+                                if old_info.phase != i.progress.phase {
+                                    old_info.phase = i.progress.phase.clone();
+                                }
                                 old_info.file_size_bytes = i.progress.file_size_bytes;
                                 old_info.file_count = i.progress.file_count;
                                 // We avoid allocating url, platform, title, file_path, and thumbnail_url
