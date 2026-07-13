@@ -886,7 +886,7 @@ impl App {
 
         // Refresh system info (Process specific, every 2 seconds)
         if self.last_sys_refresh.elapsed().as_secs() >= 2 {
-                // Optimization: Rather than iterating over all system processes, we only need to monitor our own memory/CPU usage.
+            // Optimization: Rather than iterating over all system processes, we only need to monitor our own memory/CPU usage.
             self.sys_info
                 .refresh_processes(sysinfo::ProcessesToUpdate::Some(&[self.pid]));
             if let Some(process) = self.sys_info.process(self.pid) {
