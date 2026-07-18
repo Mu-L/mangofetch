@@ -1623,10 +1623,161 @@ fn render_keybindings(f: &mut Frame, app: &App, area: Rect) {
     f.render_widget(Paragraph::new(Line::from(all_spans)), area);
 }
 
-fn render_statusbar(f: &mut Frame, app: &App, area: Rect) {
+fn build_statusbar_module<'a>(
+    module_name: &str,
+    app: &'a App,
+    millisecond: u32,
+    is_downloading: bool,
+) -> Vec<Span<'a>> {
     let t = &app.theme;
     let nf = app.use_nerd_fonts;
+    match module_name {
+        "mode" => {
+            let mode_str = match app.mode {
+                Mode::Normal => "NORMAL",
+                Mode::AddUrl | Mode::AddConfirm => "INPUT",
+                Mode::Command => "COMMAND",
+                Mode::ConfirmDelete => "CONFIRM",
+            };
+            let pulse_char = if !app.enable_animations {
+                if nf {
+                    "⬢"
+                } else {
+                    "o"
+                }
+            } else if nf {
+                let pulse_idx = ((millisecond / 250) % 4) as usize;
+                ["⬡", "⬢", "⬡", "⬢"][pulse_idx]
+            } else {
+                let pulse_idx = ((millisecond / 250) % 4) as usize;
+                ["-", "o", "-", "o"][pulse_idx]
+            };
+            vec![
+                Span::styled(
+                    format!(" {} ", pulse_char),
+                    Style::new().fg(t.background).bold(),
+                ),
+                Span::styled(
+                    format!("MODE: {} ", mode_str.to_uppercase()),
+                    Style::new().fg(t.background).bold(),
+                ),
+            ]
+        }
+        "tab" => vec![Span::styled(
+            app.active_tab.label(nf).trim().to_uppercase(),
+            Style::new().fg(t.background).bold(),
+        )],
+        "time" => vec![Span::styled(
+            // Optimization: Use pre-formatted current_time from app state by reference instead of allocating a new string on every render frame
+            app.current_time.as_str(),
+            Style::new().fg(t.background),
+        )],
+        "radar" => {
+            let scan_chars = if nf {
+                ["░", "▒", "▓", "█", "▓", "▒", "░", " "]
+            } else {
+                ["=", "o", "x", "X", "x", "o", "=", " "]
+            };
+            let scan_idx = if !app.enable_animations {
+                0
+            } else {
+                ((millisecond / 120) % 8) as usize
+            };
+            let mut scan_bar = String::new();
+            for i in 0..6 {
+                let char_idx = (scan_idx + i) % 8;
+                scan_bar.push(scan_chars[char_idx].chars().next().unwrap_or(' '));
+            }
+            vec![Span::styled(
+                format!("[SYS: {}] ", scan_bar),
+                Style::new().fg(t.background).bold(),
+            )]
+        }
+        "cpu" => {
+            let cpu_icon = if nf { "󰻠 " } else { "CPU " };
+            vec![Span::styled(
+                format!("{}{:.0}%", cpu_icon, app.cpu_usage),
+                Style::new().fg(t.background),
+            )]
+        }
+        "ram" => {
+            let mem_icon = if nf { "󰍛 " } else { "RAM " };
+            vec![Span::styled(
+                format!("{}{}", mem_icon, format_bytes(app.mem_usage)),
+                Style::new().fg(t.background),
+            )]
+        }
+        "speed" => {
+            let mut s_spans = Vec::new();
+            let dl_indicator = if nf {
+                if is_downloading && app.enable_animations {
+                    let idx = ((millisecond / 150) % 4) as usize;
+                    [" 󰇚 ", " 󰇛 ", " 󰇜 ", " 󰇚 "][idx]
+                } else {
+                    " 󰇚 "
+                }
+            } else {
+                if is_downloading && app.enable_animations {
+                    let idx = ((millisecond / 200) % 2) as usize;
+                    if idx == 0 {
+                        " v "
+                    } else {
+                        " . "
+                    }
+                } else {
+                    " v "
+                }
+            };
+            if is_downloading {
+                s_spans.push(Span::styled(
+                    dl_indicator,
+                    Style::new().fg(t.background).bold(),
+                ));
+                s_spans.push(Span::styled(
+                    format!("{}/s", format_bytes(app.total_speed as u64)),
+                    Style::new().fg(t.background).bold(),
+                ));
+            } else {
+                let net_icon = if nf { "󰇚 " } else { "NET " };
+                s_spans.push(Span::styled(
+                    format!("{}OFFLINE", net_icon),
+                    Style::new().fg(t.background),
+                ));
+            }
+            s_spans
+        }
+        "queue" => vec![Span::styled(
+            format!("Q: {}/{}", app.active_count, app.items.len()),
+            Style::new().fg(t.background),
+        )],
+        _ => vec![],
+    }
+}
 
+fn build_statusbar_center_span<'a>(app: &'a App) -> Span<'a> {
+    let t = &app.theme;
+    if app.mode == Mode::Command {
+        Span::styled(
+            format!(":{}█", app.command_buffer),
+            Style::new().fg(t.accent).bold().bg(t.background),
+        )
+    } else if let Some(msg) = &app.status_message {
+        let col = if app.status_is_error {
+            t.error
+        } else {
+            t.success
+        };
+        Span::styled(
+            format!(" {} ", msg.to_uppercase()),
+            Style::new().fg(t.background).bg(col).bold(),
+        )
+    } else {
+        Span::raw("")
+    }
+}
+
+fn render_statusbar(f: &mut Frame, app: &App, area: Rect) {
+    let t = &app.theme;
     let is_downloading = app.total_speed > 0.0 || app.active_count > 0;
     let millisecond = Local::now().timestamp_subsec_millis();
 
@@ -1640,127 +1791,7 @@ fn render_statusbar(f: &mut Frame, app: &App, area: Rect) {
     let left_limit = active_count / 2;
 
     for (idx, module_name) in app.statusbar_modules.iter().enumerate() {
-        let spans = match module_name.as_str() {
-            "mode" => {
-                let mode_str = match app.mode {
-                    Mode::Normal => "NORMAL",
-                    Mode::AddUrl | Mode::AddConfirm => "INPUT",
-                    Mode::Command => "COMMAND",
-                    Mode::ConfirmDelete => "CONFIRM",
-                };
-                let pulse_char = if !app.enable_animations {
-                    if nf {
-                        "⬢"
-                    } else {
-                        "o"
-                    }
-                } else if nf {
-                    let pulse_idx = ((millisecond / 250) % 4) as usize;
-                    ["⬡", "⬢", "⬡", "⬢"][pulse_idx]
-                } else {
-                    let pulse_idx = ((millisecond / 250) % 4) as usize;
-                    ["-", "o", "-", "o"][pulse_idx]
-                };
-                vec![
-                    Span::styled(
-                        format!(" {} ", pulse_char),
-                        Style::new().fg(t.background).bold(),
-                    ),
-                    Span::styled(
-                        format!("MODE: {} ", mode_str.to_uppercase()),
-                        Style::new().fg(t.background).bold(),
-                    ),
-                ]
-            }
-            "tab" => vec![Span::styled(
-                app.active_tab.label(nf).trim().to_uppercase(),
-                Style::new().fg(t.background).bold(),
-            )],
-            "time" => vec![Span::styled(
-                // Optimization: Use pre-formatted current_time from app state by reference instead of allocating a new string on every render frame
-                app.current_time.as_str(),
-                Style::new().fg(t.background),
-            )],
-            "radar" => {
-                let scan_chars = if nf {
-                    ["░", "▒", "▓", "█", "▓", "▒", "░", " "]
-                } else {
-                    ["=", "o", "x", "X", "x", "o", "=", " "]
-                };
-                let scan_idx = if !app.enable_animations {
-                    0
-                } else {
-                    ((millisecond / 120) % 8) as usize
-                };
-                let mut scan_bar = String::new();
-                for i in 0..6 {
-                    let char_idx = (scan_idx + i) % 8;
-                    scan_bar.push(scan_chars[char_idx].chars().next().unwrap_or(' '));
-                }
-                vec![Span::styled(
-                    format!("[SYS: {}] ", scan_bar),
-                    Style::new().fg(t.background).bold(),
-                )]
-            }
-            "cpu" => {
-                let cpu_icon = if nf { "󰻠 " } else { "CPU " };
-                vec![Span::styled(
-                    format!("{}{:.0}%", cpu_icon, app.cpu_usage),
-                    Style::new().fg(t.background),
-                )]
-            }
-            "ram" => {
-                let mem_icon = if nf { "󰍛 " } else { "RAM " };
-                vec![Span::styled(
-                    format!("{}{}", mem_icon, format_bytes(app.mem_usage)),
-                    Style::new().fg(t.background),
-                )]
-            }
-            "speed" => {
-                let mut s_spans = Vec::new();
-                let dl_indicator = if nf {
-                    if is_downloading && app.enable_animations {
-                        let idx = ((millisecond / 150) % 4) as usize;
-                        [" 󰇚 ", " 󰇛 ", " 󰇜 ", " 󰇚 "][idx]
-                    } else {
-                        " 󰇚 "
-                    }
-                } else {
-                    if is_downloading && app.enable_animations {
-                        let idx = ((millisecond / 200) % 2) as usize;
-                        if idx == 0 {
-                            " v "
-                        } else {
-                            " . "
-                        }
-                    } else {
-                        " v "
-                    }
-                };
-                if is_downloading {
-                    s_spans.push(Span::styled(
-                        dl_indicator,
-                        Style::new().fg(t.background).bold(),
-                    ));
-                    s_spans.push(Span::styled(
-                        format!("{}/s", format_bytes(app.total_speed as u64)),
-                        Style::new().fg(t.background).bold(),
-                    ));
-                } else {
-                    let net_icon = if nf { "󰇚 " } else { "NET " };
-                    s_spans.push(Span::styled(
-                        format!("{}OFFLINE", net_icon),
-                        Style::new().fg(t.background),
-                    ));
-                }
-                s_spans
-            }
-            "queue" => vec![Span::styled(
-                format!("Q: {}/{}", app.active_count, app.items.len()),
-                Style::new().fg(t.background),
-            )],
-            _ => vec![],
-        };
+        let spans = build_statusbar_module(module_name.as_str(), app, millisecond, is_downloading);
 
         if spans.is_empty() {
             continue;
@@ -1788,24 +1819,7 @@ fn render_statusbar(f: &mut Frame, app: &App, area: Rect) {
 
     let center_area_w = area.width.saturating_sub(left_w + right_w);
 
-    let center_span = if app.mode == Mode::Command {
-        Span::styled(
-            format!(":{}█", app.command_buffer),
-            Style::new().fg(t.accent).bold().bg(t.background),
-        )
-    } else if let Some(msg) = &app.status_message {
-        let col = if app.status_is_error {
-            t.error
-        } else {
-            t.success
-        };
-        Span::styled(
-            format!(" {} ", msg.to_uppercase()),
-            Style::new().fg(t.background).bg(col).bold(),
-        )
-    } else {
-        Span::raw("")
-    };
+    let center_span = build_statusbar_center_span(app);
 
     let center_w = center_span.width() as u16;
     let left_gap = (center_area_w.saturating_sub(center_w)) / 2;
