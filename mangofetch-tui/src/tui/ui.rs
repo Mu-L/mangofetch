@@ -1438,7 +1438,6 @@ fn render_topbar(f: &mut Frame, app: &App, area: Rect) {
 
 fn render_sidebar(f: &mut Frame, app: &App, area: Rect) {
     let t = &app.theme;
-    let nf = app.use_nerd_fonts;
 
     // Sidebar block with subtle right border
     let block = Block::default()
@@ -1452,6 +1451,14 @@ fn render_sidebar(f: &mut Frame, app: &App, area: Rect) {
         Constraint::Min(0),     // Nav area
     ])
     .split(inner);
+
+    render_sidebar_identity(f, app, side_chunks[0]);
+    render_sidebar_nav(f, app, side_chunks[1]);
+}
+
+fn render_sidebar_identity(f: &mut Frame, app: &App, area: Rect) {
+    let t = &app.theme;
+    let nf = app.use_nerd_fonts;
 
     // ── TUI_IDENTITY ───────────────────────────────────────────────────────
     let logo_line = if nf {
@@ -1503,7 +1510,11 @@ fn render_sidebar(f: &mut Frame, app: &App, area: Rect) {
         status_line.alignment(Alignment::Center),
     ];
 
-    f.render_widget(Paragraph::new(identity_lines), side_chunks[0]);
+    f.render_widget(Paragraph::new(identity_lines), area);
+}
+
+fn render_sidebar_nav(f: &mut Frame, app: &App, area: Rect) {
+    let t = &app.theme;
 
     // ── TUI_NAV_ORBIT ───────────────────────────────────────────────────────
     let mut nav_lines = Vec::new();
@@ -1546,7 +1557,7 @@ fn render_sidebar(f: &mut Frame, app: &App, area: Rect) {
             .border_style(Style::new().fg(t.background)),
     );
 
-    f.render_widget(nav_orbit, side_chunks[1]);
+    f.render_widget(nav_orbit, area);
 }
 
 fn render_keybindings(f: &mut Frame, app: &App, area: Rect) {
