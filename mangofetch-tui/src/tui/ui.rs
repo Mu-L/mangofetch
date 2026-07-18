@@ -1058,6 +1058,266 @@ fn status_display(
     }
 }
 
+fn render_preview_loading(f: &mut Frame, app: &App, area: Rect) {
+    let t = &app.theme;
+    let loading = Paragraph::new(vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled("  ░▒▓ ", Style::new().fg(t.accent)),
+            Span::styled(
+                "SYNAPSE_HANDSHAKE_IN_PROGRESS",
+                Style::new().fg(t.text).bold(),
+            ),
+            Span::styled(" ▓▒░", Style::new().fg(t.accent)),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  Attempting to fetch remote metadata... Please wait.",
+            Style::new().fg(t.text_dim),
+        )),
+    ])
+    .alignment(Alignment::Center);
+    f.render_widget(loading, area);
+}
+
+fn render_preview_error(f: &mut Frame, app: &App, err: &str, area: Rect) {
+    let t = &app.theme;
+    let err_icon = if app.use_nerd_fonts { " 󰅖 " } else { " ! " };
+    let error = Paragraph::new(vec![
+        Line::from(""),
+        Line::from(vec![
+            Span::styled(err_icon, Style::new().fg(t.background).bg(t.error).bold()),
+            Span::styled(" PROTOCOL_ERROR ", Style::new().fg(t.error).bold()),
+        ]),
+        Line::from(""),
+        Line::from(Span::styled(format!("  {}", err), Style::new().fg(t.text))),
+        Line::from(""),
+        Line::from(Span::styled(
+            "  [System bypass available: Press ENTER to force queue]",
+            Style::new().fg(t.secondary).italic(),
+        )),
+    ])
+    .alignment(Alignment::Center)
+    .wrap(Wrap { trim: true });
+    f.render_widget(error, area);
+}
+
+fn render_preview_info_header(
+    f: &mut Frame,
+    app: &App,
+    info: &mangofetch_core::models::media::MediaInfo,
+    area: Rect,
+) {
+    let t = &app.theme;
+    let nf = app.use_nerd_fonts;
+
+    let title_label = if nf { " 󰄖 TARGET " } else { " [TARGET] " };
+    let platform_label = if nf { " 󰏘 SOURCE " } else { " [SOURCE] " };
+    let url_label = if nf { " 󰌷 URL    " } else { " [URL]    " };
+    let status_label = if nf { " 󰔛 STATUS " } else { " [STATUS] " };
+
+    let info_lines = vec![
+        Line::from(vec![
+            Span::styled(title_label, Style::new().fg(t.accent).bold()),
+            Span::styled(" ", Style::new()),
+            Span::styled(truncate(&info.title, 50), Style::new().fg(t.text).bold()),
+        ]),
+        Line::from(vec![
+            Span::styled(platform_label, Style::new().fg(t.secondary).bold()),
+            Span::styled(" ", Style::new()),
+            Span::styled(info.platform.to_uppercase(), Style::new().fg(t.text)),
+        ]),
+        Line::from(vec![
+            Span::styled(url_label, Style::new().fg(t.text_dim)),
+            Span::styled(" ", Style::new()),
+            Span::styled(truncate(&app.url_input, 50), Style::new().fg(t.text_dim)),
+        ]),
+        Line::from(vec![
+            Span::styled(status_label, Style::new().fg(t.text_dim)),
+            Span::styled(" ", Style::new()),
+            Span::styled(
+                " READY_FOR_TRANSFER ",
+                Style::new().bg(t.success).fg(t.background).bold(),
+            ),
+        ]),
+    ];
+
+    let info_p = Paragraph::new(info_lines).wrap(Wrap { trim: true });
+    f.render_widget(info_p, area);
+}
+
+fn render_preview_qualities(
+    f: &mut Frame,
+    app: &App,
+    info: &mangofetch_core::models::media::MediaInfo,
+    area: Rect,
+) {
+    let t = &app.theme;
+    let mut q_items = vec![];
+    if info.available_qualities.is_empty() {
+        q_items.push(ListItem::new(Line::from(Span::styled(
+            "  No specific qualities found. Will use default/best.",
+            Style::new().fg(t.text_dim),
+        ))));
+    } else {
+        for (i, q) in info.available_qualities.iter().enumerate() {
+            let prefix = if i == app.confirm_quality_idx {
+                if app.confirm_focused_field == 0 {
+                    "  ▶ "
+                } else {
+                    "  ▷ "
+                }
+            } else {
+                "    "
+            };
+            let style = if i == app.confirm_quality_idx {
+                if app.confirm_focused_field == 0 {
+                    Style::new().fg(t.background).bg(t.accent).bold()
+                } else {
+                    Style::new().fg(t.accent)
+                }
+            } else {
+                Style::new().fg(t.text)
+            };
+
+            let size_str = if let Some(bytes) = q.filesize_bytes {
+                format!(" ({:.1} MB)", bytes as f64 / 1_048_576.0)
+            } else {
+                String::new()
+            };
+
+            let label = format!(
+                "{}{} ({}x{}){}",
+                prefix, q.label, q.width, q.height, size_str
+            );
+            q_items.push(ListItem::new(Line::from(Span::styled(label, style))));
+        }
+    }
+
+    let q_list = ratatui::widgets::List::new(q_items).block(
+        Block::default()
+            .borders(Borders::TOP)
+            .title(" Resoluciones Disponibles ")
+            .border_style(Style::new().fg(t.surface)),
+    );
+    f.render_widget(q_list, area);
+}
+
+fn render_preview_options(f: &mut Frame, app: &App, area: Rect) {
+    let t = &app.theme;
+
+    let opt_style_1 = if app.confirm_focused_field == 1 {
+        Style::new().bg(t.secondary).fg(t.background).bold()
+    } else {
+        Style::new().fg(t.text)
+    };
+    let opt_style_2 = if app.confirm_focused_field == 2 {
+        Style::new().bg(t.secondary).fg(t.background).bold()
+    } else {
+        Style::new().fg(t.text)
+    };
+    let opt_style_3 = if app.confirm_focused_field == 3 {
+        Style::new().bg(t.secondary).fg(t.background).bold()
+    } else {
+        Style::new().fg(t.text)
+    };
+    let opt_style_4 = if app.confirm_focused_field == 4 {
+        Style::new().bg(t.secondary).fg(t.background).bold()
+    } else {
+        Style::new().fg(t.text)
+    };
+
+    let format_lbl = format!(" Mode: < {} > ", app.confirm_download_mode.to_uppercase());
+    let subs_lbl = format!(
+        " Subtitles: < {} > ",
+        if app.confirm_download_subtitles {
+            "YES"
+        } else {
+            "NO"
+        }
+    );
+    let explicit_format_lbl = if app.confirm_download_mode == "video" {
+        format!(" Video Format: < {} > ", app.confirm_video_format)
+    } else {
+        format!(" Audio Format: < {} > ", app.confirm_audio_format)
+    };
+    let audio_quality_lbl = format!(" Audio Quality: < {} > ", app.confirm_audio_quality);
+
+    let mut opts_lines = vec![
+        Line::from(vec![
+            Span::styled(
+                if app.confirm_focused_field == 1 {
+                    " ▶"
+                } else {
+                    "  "
+                },
+                Style::new().fg(t.secondary),
+            ),
+            Span::styled(format_lbl, opt_style_1),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                if app.confirm_focused_field == 2 {
+                    " ▶"
+                } else {
+                    "  "
+                },
+                Style::new().fg(t.secondary),
+            ),
+            Span::styled(subs_lbl, opt_style_2),
+        ]),
+        Line::from(vec![
+            Span::styled(
+                if app.confirm_focused_field == 3 {
+                    " ▶"
+                } else {
+                    "  "
+                },
+                Style::new().fg(t.secondary),
+            ),
+            Span::styled(explicit_format_lbl, opt_style_3),
+        ]),
+    ];
+    if app.confirm_download_mode == "audio" {
+        opts_lines.push(Line::from(vec![
+            Span::styled(
+                if app.confirm_focused_field == 4 {
+                    " ▶"
+                } else {
+                    "  "
+                },
+                Style::new().fg(t.secondary),
+            ),
+            Span::styled(audio_quality_lbl, opt_style_4),
+        ]));
+    }
+    let opts_p = Paragraph::new(opts_lines).block(
+        Block::default()
+            .borders(Borders::TOP)
+            .title(" Opciones Extras ")
+            .border_style(Style::new().fg(t.surface)),
+    );
+    f.render_widget(opts_p, area);
+}
+
+fn render_preview_info(
+    f: &mut Frame,
+    app: &App,
+    info: &mangofetch_core::models::media::MediaInfo,
+    area: Rect,
+) {
+    let content_chunks = Layout::vertical([
+        Constraint::Length(6), // Info header
+        Constraint::Min(4),    // Qualities list
+        Constraint::Length(6), // Options
+    ])
+    .split(area);
+
+    render_preview_info_header(f, app, info, content_chunks[0]);
+    render_preview_qualities(f, app, info, content_chunks[1]);
+    render_preview_options(f, app, content_chunks[2]);
+}
+
 fn render_add_confirm_modal(f: &mut Frame, app: &App) {
     let t = &app.theme;
     let nf = app.use_nerd_fonts;
@@ -1086,228 +1346,11 @@ fn render_add_confirm_modal(f: &mut Frame, app: &App) {
     .split(area);
 
     if app.is_fetching_preview {
-        let loading = Paragraph::new(vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::styled("  ░▒▓ ", Style::new().fg(t.accent)),
-                Span::styled(
-                    "SYNAPSE_HANDSHAKE_IN_PROGRESS",
-                    Style::new().fg(t.text).bold(),
-                ),
-                Span::styled(" ▓▒░", Style::new().fg(t.accent)),
-            ]),
-            Line::from(""),
-            Line::from(Span::styled(
-                "  Attempting to fetch remote metadata... Please wait.",
-                Style::new().fg(t.text_dim),
-            )),
-        ])
-        .alignment(Alignment::Center);
-        f.render_widget(loading, chunks[0]);
+        render_preview_loading(f, app, chunks[0]);
     } else if let Some(err) = &app.preview_error {
-        let err_icon = if nf { " 󰅖 " } else { " ! " };
-        let error = Paragraph::new(vec![
-            Line::from(""),
-            Line::from(vec![
-                Span::styled(err_icon, Style::new().fg(t.background).bg(t.error).bold()),
-                Span::styled(" PROTOCOL_ERROR ", Style::new().fg(t.error).bold()),
-            ]),
-            Line::from(""),
-            Line::from(Span::styled(format!("  {}", err), Style::new().fg(t.text))),
-            Line::from(""),
-            Line::from(Span::styled(
-                "  [System bypass available: Press ENTER to force queue]",
-                Style::new().fg(t.secondary).italic(),
-            )),
-        ])
-        .alignment(Alignment::Center)
-        .wrap(Wrap { trim: true });
-        f.render_widget(error, chunks[0]);
+        render_preview_error(f, app, err, chunks[0]);
     } else if let Some(info) = &app.preview_info {
-        let content_chunks = Layout::vertical([
-            Constraint::Length(6), // Info header
-            Constraint::Min(4),    // Qualities list
-            Constraint::Length(6), // Options
-        ])
-        .split(chunks[0]);
-
-        let title_label = if nf { " 󰄖 TARGET " } else { " [TARGET] " };
-        let platform_label = if nf { " 󰏘 SOURCE " } else { " [SOURCE] " };
-        let url_label = if nf { " 󰌷 URL    " } else { " [URL]    " };
-        let status_label = if nf { " 󰔛 STATUS " } else { " [STATUS] " };
-
-        let info_lines = vec![
-            Line::from(vec![
-                Span::styled(title_label, Style::new().fg(t.accent).bold()),
-                Span::styled(" ", Style::new()),
-                Span::styled(truncate(&info.title, 50), Style::new().fg(t.text).bold()),
-            ]),
-            Line::from(vec![
-                Span::styled(platform_label, Style::new().fg(t.secondary).bold()),
-                Span::styled(" ", Style::new()),
-                Span::styled(info.platform.to_uppercase(), Style::new().fg(t.text)),
-            ]),
-            Line::from(vec![
-                Span::styled(url_label, Style::new().fg(t.text_dim)),
-                Span::styled(" ", Style::new()),
-                Span::styled(truncate(&app.url_input, 50), Style::new().fg(t.text_dim)),
-            ]),
-            Line::from(vec![
-                Span::styled(status_label, Style::new().fg(t.text_dim)),
-                Span::styled(" ", Style::new()),
-                Span::styled(
-                    " READY_FOR_TRANSFER ",
-                    Style::new().bg(t.success).fg(t.background).bold(),
-                ),
-            ]),
-        ];
-
-        let info_p = Paragraph::new(info_lines).wrap(Wrap { trim: true });
-        f.render_widget(info_p, content_chunks[0]);
-
-        // Qualities
-        let mut q_items = vec![];
-        if info.available_qualities.is_empty() {
-            q_items.push(ListItem::new(Line::from(Span::styled(
-                "  No specific qualities found. Will use default/best.",
-                Style::new().fg(t.text_dim),
-            ))));
-        } else {
-            for (i, q) in info.available_qualities.iter().enumerate() {
-                let prefix = if i == app.confirm_quality_idx {
-                    if app.confirm_focused_field == 0 {
-                        "  ▶ "
-                    } else {
-                        "  ▷ "
-                    }
-                } else {
-                    "    "
-                };
-                let style = if i == app.confirm_quality_idx {
-                    if app.confirm_focused_field == 0 {
-                        Style::new().fg(t.background).bg(t.accent).bold()
-                    } else {
-                        Style::new().fg(t.accent)
-                    }
-                } else {
-                    Style::new().fg(t.text)
-                };
-
-                let size_str = if let Some(bytes) = q.filesize_bytes {
-                    format!(" ({:.1} MB)", bytes as f64 / 1_048_576.0)
-                } else {
-                    String::new()
-                };
-
-                let label = format!(
-                    "{}{} ({}x{}){}",
-                    prefix, q.label, q.width, q.height, size_str
-                );
-                q_items.push(ListItem::new(Line::from(Span::styled(label, style))));
-            }
-        }
-
-        let q_list = ratatui::widgets::List::new(q_items).block(
-            Block::default()
-                .borders(Borders::TOP)
-                .title(" Resoluciones Disponibles ")
-                .border_style(Style::new().fg(t.surface)),
-        );
-        f.render_widget(q_list, content_chunks[1]);
-
-        // Options
-        let opt_style_1 = if app.confirm_focused_field == 1 {
-            Style::new().bg(t.secondary).fg(t.background).bold()
-        } else {
-            Style::new().fg(t.text)
-        };
-        let opt_style_2 = if app.confirm_focused_field == 2 {
-            Style::new().bg(t.secondary).fg(t.background).bold()
-        } else {
-            Style::new().fg(t.text)
-        };
-        let opt_style_3 = if app.confirm_focused_field == 3 {
-            Style::new().bg(t.secondary).fg(t.background).bold()
-        } else {
-            Style::new().fg(t.text)
-        };
-        let opt_style_4 = if app.confirm_focused_field == 4 {
-            Style::new().bg(t.secondary).fg(t.background).bold()
-        } else {
-            Style::new().fg(t.text)
-        };
-
-        let format_lbl = format!(" Mode: < {} > ", app.confirm_download_mode.to_uppercase());
-        let subs_lbl = format!(
-            " Subtitles: < {} > ",
-            if app.confirm_download_subtitles {
-                "YES"
-            } else {
-                "NO"
-            }
-        );
-        let explicit_format_lbl = if app.confirm_download_mode == "video" {
-            format!(" Video Format: < {} > ", app.confirm_video_format)
-        } else {
-            format!(" Audio Format: < {} > ", app.confirm_audio_format)
-        };
-        let audio_quality_lbl = format!(" Audio Quality: < {} > ", app.confirm_audio_quality);
-
-        let mut opts_lines = vec![
-            Line::from(vec![
-                Span::styled(
-                    if app.confirm_focused_field == 1 {
-                        " ▶"
-                    } else {
-                        "  "
-                    },
-                    Style::new().fg(t.secondary),
-                ),
-                Span::styled(format_lbl, opt_style_1),
-            ]),
-            Line::from(vec![
-                Span::styled(
-                    if app.confirm_focused_field == 2 {
-                        " ▶"
-                    } else {
-                        "  "
-                    },
-                    Style::new().fg(t.secondary),
-                ),
-                Span::styled(subs_lbl, opt_style_2),
-            ]),
-            Line::from(vec![
-                Span::styled(
-                    if app.confirm_focused_field == 3 {
-                        " ▶"
-                    } else {
-                        "  "
-                    },
-                    Style::new().fg(t.secondary),
-                ),
-                Span::styled(explicit_format_lbl, opt_style_3),
-            ]),
-        ];
-        if app.confirm_download_mode == "audio" {
-            opts_lines.push(Line::from(vec![
-                Span::styled(
-                    if app.confirm_focused_field == 4 {
-                        " ▶"
-                    } else {
-                        "  "
-                    },
-                    Style::new().fg(t.secondary),
-                ),
-                Span::styled(audio_quality_lbl, opt_style_4),
-            ]));
-        }
-        let opts_p = Paragraph::new(opts_lines).block(
-            Block::default()
-                .borders(Borders::TOP)
-                .title(" Opciones Extras ")
-                .border_style(Style::new().fg(t.surface)),
-        );
-        f.render_widget(opts_p, content_chunks[2]);
+        render_preview_info(f, app, info, chunks[0]);
     }
 
     let enter_key = if nf { " 󰌑 ENTER " } else { " ENTER " };
@@ -1326,6 +1369,7 @@ fn render_add_confirm_modal(f: &mut Frame, app: &App) {
     .alignment(Alignment::Center);
     f.render_widget(help, chunks[1]);
 }
+
 
 fn centered_rect(pct_x: u16, pct_y: u16, r: Rect) -> Rect {
     let vert = Layout::vertical([
