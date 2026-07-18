@@ -384,7 +384,6 @@ async fn handle_confirm_delete(app: &mut App, code: KeyCode) {
     }
 }
 
-
 fn handle_normal_global_keys(app: &mut App, code: KeyCode) -> bool {
     match code {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
@@ -568,8 +567,14 @@ async fn handle_normal_mode(app: &mut App, code: KeyCode, modifiers: KeyModifier
         return;
     }
 
-    if handle_normal_global_keys(app, code) { return; }
-    if handle_normal_tab_keys(app, code) { return; }
-    if handle_normal_nav_keys(app, code) { return; }
+    if handle_normal_global_keys(app, code) {
+        return;
+    }
+    if handle_normal_tab_keys(app, code) {
+        return;
+    }
+    if handle_normal_nav_keys(app, code) {
+        return;
+    }
     handle_normal_action_keys(app, code).await;
 }
