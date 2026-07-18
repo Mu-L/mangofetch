@@ -1370,7 +1370,6 @@ fn render_add_confirm_modal(f: &mut Frame, app: &App) {
     f.render_widget(help, chunks[1]);
 }
 
-
 fn centered_rect(pct_x: u16, pct_y: u16, r: Rect) -> Rect {
     let vert = Layout::vertical([
         Constraint::Percentage((100 - pct_y) / 2),
