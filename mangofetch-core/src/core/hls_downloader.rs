@@ -455,8 +455,10 @@ async fn write_segments_ordered(
     total_segments: usize,
 ) -> anyhow::Result<()> {
     use tokio::io::AsyncWriteExt;
-    let mut file =
-        tokio::io::BufWriter::with_capacity(256 * 1024, tokio::fs::File::create(output_path).await?);
+    let mut file = tokio::io::BufWriter::with_capacity(
+        256 * 1024,
+        tokio::fs::File::create(output_path).await?,
+    );
     let mut next_expected: usize = 0;
     let mut pending: BTreeMap<usize, Vec<u8>> = BTreeMap::new();
 
