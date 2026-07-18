@@ -274,8 +274,27 @@ async fn main() -> Result<()> {
             .await?;
             wait_for_queue(&queue).await;
         }
-        Commands::DownloadMultiple { file, output, video_format, audio_format, audio_quality, yes } => {
-            handle_download_multiple(file, output, video_format, audio_format, audio_quality, yes, &registry, &queue, reporter.clone(), &theme).await?;
+        Commands::DownloadMultiple {
+            file,
+            output,
+            video_format,
+            audio_format,
+            audio_quality,
+            yes,
+        } => {
+            handle_download_multiple(
+                file,
+                output,
+                video_format,
+                audio_format,
+                audio_quality,
+                yes,
+                &registry,
+                &queue,
+                reporter.clone(),
+                &theme,
+            )
+            .await?;
         }
         Commands::Info { url } => {
             handle_info(url, &registry, &theme).await?;
@@ -283,10 +302,19 @@ async fn main() -> Result<()> {
         Commands::Send { file } => {
             handle_send(file, &theme);
         }
-        Commands::List { active, queued, completed, failed } => {
+        Commands::List {
+            active,
+            queued,
+            completed,
+            failed,
+        } => {
             handle_list(active, queued, completed, failed, &theme);
         }
-        Commands::Clean { finished, failed, logs } => {
+        Commands::Clean {
+            finished,
+            failed,
+            logs,
+        } => {
             handle_clean(finished, failed, logs, &theme);
         }
         Commands::Config { action } => {
@@ -706,12 +734,7 @@ fn handle_list(
     println!("{}", format_queue_list(display_items, theme));
 }
 
-fn handle_clean(
-    finished: bool,
-    failed: bool,
-    logs: bool,
-    theme: &Arc<dyn CliTheme>,
-) {
+fn handle_clean(finished: bool, failed: bool, logs: bool, theme: &Arc<dyn CliTheme>) {
     if logs {
         match mangofetch_core::core::logger::clean_logs() {
             Ok(count) => {
@@ -819,7 +842,10 @@ async fn handle_check(reporter: Option<Arc<dyn DownloadReporter>>, theme: &Arc<d
     match mangofetch_core::core::dependencies::ensure_dependencies(false, reporter).await {
         Ok(deps) => {
             let yt_dlp_path = deps.ytdlp.as_ref().map(|p| p.to_string_lossy().to_string());
-            let ffmpeg_path = deps.ffmpeg.as_ref().map(|p| p.to_string_lossy().to_string());
+            let ffmpeg_path = deps
+                .ffmpeg
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string());
 
             println!(
                 "{}",
@@ -845,7 +871,10 @@ async fn handle_update(reporter: Option<Arc<dyn DownloadReporter>>, theme: &Arc<
     match mangofetch_core::core::dependencies::ensure_dependencies(true, reporter).await {
         Ok(deps) => {
             let yt_dlp_path = deps.ytdlp.as_ref().map(|p| p.to_string_lossy().to_string());
-            let ffmpeg_path = deps.ffmpeg.as_ref().map(|p| p.to_string_lossy().to_string());
+            let ffmpeg_path = deps
+                .ffmpeg
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string());
 
             println!(
                 "{}✓ Update complete.{}\n",
