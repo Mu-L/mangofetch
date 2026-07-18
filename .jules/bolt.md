@@ -31,3 +31,6 @@
 ## 2024-05-15 - [Prevent Executor Blocking on I/O]
  **Learning:** Standard library I/O (like `std::fs::create_dir_all`) inside of Tokio async functions will stall the runtime thread, degrading overall application responsiveness in I/O-bound tasks.
  **Action:** Always use Tokio's non-blocking counterparts (`tokio::fs::create_dir_all().await`) within `async fn` to maximize asynchronous throughput.
+## 2026-07-18 - [Rust Test Flakiness with Env Vars]
+ **Learning:** In Rust, `std::env::set_var()` modifies global state and causes intermittent and unpredictable test failures (e.g. `PoisonError`, assertion failures) when `cargo test` executes tests in parallel across multiple modules.
+ **Action:** Avoid `std::env::set_var` in tests; use `thread_local!` state blocks or inject context instead to isolate I/O or configuration tests.
