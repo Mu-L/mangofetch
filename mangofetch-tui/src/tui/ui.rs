@@ -256,47 +256,9 @@ fn render_terminal_output(f: &mut Frame, app: &App, area: Rect) {
 
 // ── Queue / History table ─────────────────────────────────────────────────────
 
-fn render_queue_table(f: &mut Frame, app: &mut App, area: Rect) {
-    let t = &app.theme;
-    let nf = app.use_nerd_fonts;
 
-    let (margin, cat_height) = if app.layout == "topbar" {
-        (0, 2)
-    } else {
-        (1, 3)
-    };
-
-    // Split area: top gap, category tabs, then table
-    let chunks = Layout::vertical([
-        Constraint::Length(margin),     // Top margin
-        Constraint::Length(cat_height), // Categories
-        Constraint::Min(0),             // Table
-    ])
-    .split(area);
-
-    render_categories(f, app, chunks[1]);
-    let table_area = chunks[2];
-
-    let h_binding = [
-        if nf { "  ID" } else { " ID" },
-        if nf { "󰋉  Platform" } else { " Platform" },
-        if nf { "󰈙  Title" } else { " Title" },
-        " Status",
-        " Progress",
-        if nf { "󰓅  Speed" } else { " Speed" },
-        " ETA",
-    ];
-    let header_cells = h_binding
-        .into_iter()
-        .map(|h| Cell::from(h).style(Style::new().fg(t.secondary).bold()));
-
-    let header = Row::new(header_cells)
-        .style(Style::new().bg(t.surface))
-        .height(1)
-        .bottom_margin(1);
-
-    let rows: Vec<Row> = app
-        .items
+fn build_table_rows<'a>(items: &'a [mangofetch_core::models::queue::QueueItemInfo], nf: bool, t: &'a super::themes::Theme) -> Vec<Row<'a>> {
+    items
         .iter()
         .map(|item| {
             let (status_color, status_str) = status_display(item, nf, t);
@@ -350,9 +312,64 @@ fn render_queue_table(f: &mut Frame, app: &mut App, area: Rect) {
             .style(Style::new().fg(t.text))
             .height(1)
         })
-        .collect();
+        .collect()
+}
 
+fn render_empty_table(f: &mut Frame, t: &super::themes::Theme, title: &str, area: Rect) {
     let empty_msg = "  No downloads found.  Press 'a' to add a URL.";
+    let p = Paragraph::new(empty_msg)
+        .block(
+            Block::default()
+                .borders(Borders::TOP)
+                .title(title)
+                .title_style(Style::new().fg(t.text_dim).bold())
+                .border_style(Style::new().fg(t.surface_dim)),
+        )
+        .style(Style::new().fg(t.text_dim))
+        .alignment(Alignment::Center);
+    f.render_widget(p, area);
+}
+
+fn render_queue_table(f: &mut Frame, app: &mut App, area: Rect) {
+    let t = &app.theme;
+    let nf = app.use_nerd_fonts;
+
+    let (margin, cat_height) = if app.layout == "topbar" {
+        (0, 2)
+    } else {
+        (1, 3)
+    };
+
+    // Split area: top gap, category tabs, then table
+    let chunks = Layout::vertical([
+        Constraint::Length(margin),     // Top margin
+        Constraint::Length(cat_height), // Categories
+        Constraint::Min(0),             // Table
+    ])
+    .split(area);
+
+    render_categories(f, app, chunks[1]);
+    let table_area = chunks[2];
+
+    let h_binding = [
+        if nf { "  ID" } else { " ID" },
+        if nf { "󰋉  Platform" } else { " Platform" },
+        if nf { "󰈙  Title" } else { " Title" },
+        " Status",
+        " Progress",
+        if nf { "󰓅  Speed" } else { " Speed" },
+        " ETA",
+    ];
+    let header_cells = h_binding
+        .into_iter()
+        .map(|h| Cell::from(h).style(Style::new().fg(t.secondary).bold()));
+
+    let header = Row::new(header_cells)
+        .style(Style::new().bg(t.surface))
+        .height(1)
+        .bottom_margin(1);
+
+    let rows = build_table_rows(&app.items, nf, t);
 
     let title = if nf {
         " 󰄖 Downloads "
@@ -361,17 +378,7 @@ fn render_queue_table(f: &mut Frame, app: &mut App, area: Rect) {
     };
 
     if app.items.is_empty() {
-        let p = Paragraph::new(empty_msg)
-            .block(
-                Block::default()
-                    .borders(Borders::TOP)
-                    .title(title)
-                    .title_style(Style::new().fg(t.text_dim).bold())
-                    .border_style(Style::new().fg(t.surface_dim)),
-            )
-            .style(Style::new().fg(t.text_dim))
-            .alignment(Alignment::Center);
-        f.render_widget(p, table_area);
+        render_empty_table(f, t, title, table_area);
         return;
     }
 
