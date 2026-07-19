@@ -34,3 +34,7 @@
 ## 2026-07-18 - [Rust Test Flakiness with Env Vars]
  **Learning:** In Rust, `std::env::set_var()` modifies global state and causes intermittent and unpredictable test failures (e.g. `PoisonError`, assertion failures) when `cargo test` executes tests in parallel across multiple modules.
  **Action:** Avoid `std::env::set_var` in tests; use `thread_local!` state blocks or inject context instead to isolate I/O or configuration tests.
+## 2026-07-18 - [Avoid Blocking Tokio Executor with Synchronous Filesystem Operations]
+**Learning:** `std::fs::create_dir_all` and similar synchronous filesystem calls inside an `async fn` block the Tokio executor thread. This increases the wake-up latency for other async tasks, slowing down the overall async runtime during concurrent file I/O operations.
+**Action:** Replace direct calls to `std::fs` operations with their non-blocking asynchronous counterparts, such as `tokio::fs::create_dir_all`, and `.await` them to allow the executor to efficiently schedule other tasks during the I/O wait.
+

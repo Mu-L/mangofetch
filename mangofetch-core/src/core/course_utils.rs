@@ -117,3 +117,93 @@ pub async fn ensure_dir(path: &str) -> anyhow::Result<()> {
     std::fs::create_dir_all(path)?;
     Ok(())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use tempfile::TempDir;
+
+    #[tokio::test]
+    async fn test_save_description_empty_content() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path().to_str().unwrap();
+
+        let result = save_description(dir_path, "   ", "markdown").await;
+        assert!(result.is_ok());
+
+        let files: Vec<_> = fs::read_dir(temp_dir.path()).unwrap().collect();
+        assert!(
+            files.is_empty(),
+            "No file should be created for empty content"
+        );
+    }
+
+    #[tokio::test]
+    async fn test_save_description_markdown() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path().to_str().unwrap();
+
+        let content = "# Hello World";
+        let result = save_description(dir_path, content, "md").await;
+        assert!(result.is_ok());
+
+        let file_path = temp_dir.path().join("description.md");
+        assert!(file_path.exists());
+
+        let saved_content = fs::read_to_string(file_path).unwrap();
+        assert_eq!(saved_content, content);
+    }
+
+    #[tokio::test]
+    async fn test_save_description_html_wrapped() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path().to_str().unwrap();
+
+        let content = "<h1>Hello</h1>";
+        let result = save_description(dir_path, content, "html").await;
+        assert!(result.is_ok());
+
+        let file_path = temp_dir.path().join("description.html");
+        assert!(file_path.exists());
+
+        let saved_content = fs::read_to_string(file_path).unwrap();
+        assert!(saved_content.starts_with("<!DOCTYPE html>"));
+        assert!(saved_content.contains(content));
+        assert!(saved_content.ends_with("</html>"));
+    }
+
+    #[tokio::test]
+    async fn test_save_description_html_unwrapped() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path().to_str().unwrap();
+
+        let content = "<!DOCTYPE html>\n<html><body>Hi</body></html>";
+        let result = save_description(dir_path, content, "html").await;
+        assert!(result.is_ok());
+
+        let file_path = temp_dir.path().join("description.html");
+        assert!(file_path.exists());
+
+        let saved_content = fs::read_to_string(file_path).unwrap();
+        assert_eq!(saved_content, content);
+    }
+
+    #[tokio::test]
+    async fn test_save_description_already_exists() {
+        let temp_dir = TempDir::new().unwrap();
+        let dir_path = temp_dir.path().to_str().unwrap();
+        let file_path = temp_dir.path().join("description.md");
+
+        // Create the file first
+        fs::write(&file_path, "Existing content").unwrap();
+
+        // Try to save description
+        let result = save_description(dir_path, "New content", "markdown").await;
+        assert!(result.is_ok());
+
+        // Content should not be overwritten
+        let saved_content = fs::read_to_string(file_path).unwrap();
+        assert_eq!(saved_content, "Existing content");
+    }
+}

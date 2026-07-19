@@ -274,7 +274,6 @@ async fn main() -> Result<()> {
             .await?;
             wait_for_queue(&queue).await;
         }
-
         Commands::DownloadMultiple {
             file,
             output,
@@ -283,398 +282,57 @@ async fn main() -> Result<()> {
             audio_quality,
             yes,
         } => {
-            let content = std::fs::read_to_string(&file)?;
-            let urls: Vec<String> = content
-                .lines()
-                .map(|s| s.trim().to_string())
-                .filter(|s| !s.is_empty())
-                .collect();
-
-            let total = urls.len();
-            let mut failed = 0;
-
-            println!(
-                "{}📥 Starting batch download of {} URLs{}...\n",
-                theme.color_info(),
-                total,
-                theme.color_reset()
-            );
-
-            for (idx, url) in urls.iter().enumerate() {
-                println!("  [{}/{}] Queueing: {}", idx + 1, total, url);
-                if let Err(e) = perform_download(
-                    url,
-                    output.clone(),
-                    None,
-                    video_format.clone(),
-                    audio_format.clone(),
-                    audio_quality.clone(),
-                    false,
-                    yes,
-                    &registry,
-                    &queue,
-                    reporter.clone(),
-                    &theme,
-                )
-                .await
-                {
-                    eprintln!(
-                        "  {}✗ Error queueing: {}{}",
-                        theme.color_error(),
-                        e,
-                        theme.color_reset()
-                    );
-                    failed += 1;
-                }
-            }
-
-            println!(
-                "{}",
-                format_batch_summary(total, total - failed, failed, &theme)
-            );
-            wait_for_queue(&queue).await;
-        }
-
-        Commands::Info { url } => {
-            let downloader = registry
-                .find_platform(&url)
-                .ok_or_else(|| anyhow::anyhow!("No supported platform found for URL"))?;
-            let platform_name = downloader.name().to_string();
-
-            println!(
-                "{}🔍 Fetching media info...{}\n",
-                theme.color_info(),
-                theme.color_reset()
-            );
-
-            let info = mangofetch_core::core::manager::queue::fetch_and_cache_info(
-                &url,
-                &*downloader,
-                &platform_name,
+            handle_download_multiple(
+                file,
+                output,
+                video_format,
+                audio_format,
+                audio_quality,
+                yes,
+                &registry,
+                &queue,
+                reporter.clone(),
+                &theme,
             )
             .await?;
-
-            // Use formatted card output
-            let card = format_info_card(
-                &info.title,
-                &info.author,
-                &info.platform,
-                info.duration_seconds,
-                &format!("{:?}", info.media_type),
-                &theme,
-            );
-            println!("{}", card);
         }
-
+        Commands::Info { url } => {
+            handle_info(url, &registry, &theme).await?;
+        }
         Commands::Send { file } => {
-            println!(
-                "{}⚠ P2P Send not yet implemented in CLI. File: {}{}",
-                theme.color_warning(),
-                file,
-                theme.color_reset()
-            );
+            handle_send(file, &theme);
         }
-
         Commands::List {
             active,
             queued,
             completed,
             failed,
         } => {
-            let items = recovery::list();
-            let mut filtered = items;
-
-            let any_filter = active || queued || completed || failed;
-
-            if any_filter {
-                filtered.retain(|i| {
-                    (active && matches!(i.status, QueueStatus::Active))
-                        || (queued && matches!(i.status, QueueStatus::Queued))
-                        || (completed && matches!(i.status, QueueStatus::Complete { .. }))
-                        || (failed && matches!(i.status, QueueStatus::Error { .. }))
-                        || (active && matches!(i.status, QueueStatus::Seeding))
-                        || (queued && matches!(i.status, QueueStatus::Paused))
-                });
-            }
-
-            // Convert to displayable format
-            let display_items: Vec<_> = filtered
-                .iter()
-                .map(|i| {
-                    let status_str = match &i.status {
-                        QueueStatus::Active => "Active".to_string(),
-                        QueueStatus::Queued => "Queued".to_string(),
-                        QueueStatus::Paused => "Paused".to_string(),
-                        QueueStatus::Seeding => "Seeding".to_string(),
-                        QueueStatus::Complete { .. } => "Complete".to_string(),
-                        QueueStatus::Error { message } => format!("Error: {}", message),
-                    };
-                    let title = if i.title.len() > 35 {
-                        format!("{}...", &i.title[..32])
-                    } else {
-                        i.title.clone()
-                    };
-                    (i.id, title, i.platform.clone(), status_str, String::new())
-                })
-                .collect();
-
-            println!("{}", format_queue_list(display_items, &theme));
+            handle_list(active, queued, completed, failed, &theme);
         }
-
         Commands::Clean {
             finished,
             failed,
             logs,
         } => {
-            if logs {
-                match mangofetch_core::core::logger::clean_logs() {
-                    Ok(count) => {
-                        if count > 0 {
-                            println!(
-                                "{}✓ Cleaned {} old log file(s){}",
-                                theme.color_success(),
-                                count,
-                                theme.color_reset()
-                            );
-                        } else {
-                            println!(
-                                "{}✓ No old log files to clean{}",
-                                theme.color_success(),
-                                theme.color_reset()
-                            );
-                        }
-                    }
-                    Err(e) => {
-                        eprintln!(
-                            "{}✗ Failed to clean logs: {}{}",
-                            theme.color_error(),
-                            e,
-                            theme.color_reset()
-                        );
-                    }
-                }
-            }
-
-            let items_before = recovery::list().len();
-
-            if finished || failed {
-                eprintln!(
-                    "{}ℹ Selective cleaning not yet implemented, clearing all...{}",
-                    theme.color_warning(),
-                    theme.color_reset()
-                );
-            }
-
-            recovery::clear_all();
-
-            println!("{}", format_clean_summary(items_before, None, &theme));
+            handle_clean(finished, failed, logs, &theme);
         }
-
         Commands::Config { action } => {
-            let mut settings = AppSettings::load_from_disk();
-            match action {
-                ConfigAction::Get { key } => {
-                    let val = serde_json::to_value(&settings)?;
-                    if let Some(v) = get_json_path(&val, &key) {
-                        println!(
-                            "{}{}{}  = {}",
-                            theme.color_accent(),
-                            key,
-                            theme.color_reset(),
-                            v
-                        );
-                    } else {
-                        println!(
-                            "{}Key not found: {}{}",
-                            theme.color_warning(),
-                            key,
-                            theme.color_reset()
-                        );
-                    }
-                }
-
-                ConfigAction::Set { key, value } => {
-                    let mut val = serde_json::to_value(&settings)?;
-                    if set_json_path(&mut val, &key, &value) {
-                        settings = serde_json::from_value(val)?;
-                        settings.save_to_disk()?;
-                        println!(
-                            "{}✓ Set {}{}  = {}",
-                            theme.color_success(),
-                            key,
-                            theme.color_reset(),
-                            value
-                        );
-                    } else {
-                        println!(
-                            "{}✗ Failed to set key: {}{}",
-                            theme.color_error(),
-                            key,
-                            theme.color_reset()
-                        );
-                    }
-                }
-
-                ConfigAction::List => {
-                    let settings_json = serde_json::to_string_pretty(&settings)?;
-                    println!("{}", format_config_display(&settings_json, &theme));
-                }
-            }
+            handle_config(action, &theme)?;
         }
-
         Commands::Check => {
-            println!(
-                "{}🔍 Checking system dependencies...{}\n",
-                theme.color_info(),
-                theme.color_reset()
-            );
-
-            match mangofetch_core::core::dependencies::ensure_dependencies(false, reporter.clone())
-                .await
-            {
-                Ok(deps) => {
-                    let yt_dlp_path = deps.ytdlp.as_ref().map(|p| p.to_string_lossy().to_string());
-                    let ffmpeg_path = deps
-                        .ffmpeg
-                        .as_ref()
-                        .map(|p| p.to_string_lossy().to_string());
-
-                    println!(
-                        "{}",
-                        format_dependency_check(
-                            yt_dlp_path.as_deref(),
-                            ffmpeg_path.as_deref(),
-                            &theme
-                        )
-                    );
-                }
-                Err(e) => println!(
-                    "{}❌ Dependency check failed: {}{}",
-                    theme.color_error(),
-                    e,
-                    theme.color_reset()
-                ),
-            }
+            handle_check(reporter.clone(), &theme).await;
         }
-
         Commands::Update => {
-            println!(
-                "{}⬆️  Updating dependencies (yt-dlp, FFmpeg)...{}\n",
-                theme.color_accent(),
-                theme.color_reset()
-            );
-
-            match mangofetch_core::core::dependencies::ensure_dependencies(true, reporter.clone())
-                .await
-            {
-                Ok(deps) => {
-                    let yt_dlp_path = deps.ytdlp.as_ref().map(|p| p.to_string_lossy().to_string());
-                    let ffmpeg_path = deps
-                        .ffmpeg
-                        .as_ref()
-                        .map(|p| p.to_string_lossy().to_string());
-
-                    println!(
-                        "{}✓ Update complete.{}\n",
-                        theme.color_success(),
-                        theme.color_reset()
-                    );
-                    println!(
-                        "{}",
-                        format_dependency_check(
-                            yt_dlp_path.as_deref(),
-                            ffmpeg_path.as_deref(),
-                            &theme
-                        )
-                    );
-                }
-                Err(e) => println!(
-                    "{}❌ Update failed: {}{}",
-                    theme.color_error(),
-                    e,
-                    theme.color_reset()
-                ),
-            }
+            handle_update(reporter.clone(), &theme).await;
         }
-
         Commands::Logs { tail } => {
-            let log_dir = mangofetch_core::core::paths::app_data_dir().map(|d| d.join("logs"));
-            if let Some(dir) = log_dir {
-                if !dir.exists() {
-                    println!(
-                        "{}ℹ No logs found.{}",
-                        theme.color_info(),
-                        theme.color_reset()
-                    );
-                    return Ok(());
-                }
-
-                let entries = std::fs::read_dir(&dir)?;
-                let mut files: Vec<_> = entries
-                    .flatten()
-                    .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
-                    .collect();
-
-                files.sort_by_key(|e| e.metadata().and_then(|m| m.modified()).ok());
-
-                if let Some(last_file) = files.last() {
-                    let path = last_file.path();
-                    println!(
-                        "{}📋 Last {} lines from:{}  {}\n",
-                        theme.color_info(),
-                        tail,
-                        theme.color_reset(),
-                        path.display()
-                    );
-
-                    let content = std::fs::read_to_string(&path)?;
-                    let lines: Vec<_> = content.lines().collect();
-                    let start = lines.len().saturating_sub(tail);
-
-                    for line in &lines[start..] {
-                        println!("  {}", line);
-                    }
-                } else {
-                    println!(
-                        "{}ℹ No log files found in: {}{}",
-                        theme.color_info(),
-                        dir.display(),
-                        theme.color_reset()
-                    );
-                }
-            } else {
-                println!(
-                    "{}⚠ Could not determine log directory.{}",
-                    theme.color_warning(),
-                    theme.color_reset()
-                );
-            }
+            handle_logs(tail, &theme)?;
         }
-
         Commands::About { topic } => {
-            let topic = topic.unwrap_or(AboutTopic::Version);
-            match topic {
-                AboutTopic::Version => {
-                    println!(
-                        "{}",
-                        format_about_info(
-                            env!("CARGO_PKG_VERSION"),
-                            "TropicalDev",
-                            "https://github.com/julesklord/mangofetch-cli",
-                            &theme
-                        )
-                    );
-                }
-                AboutTopic::Changelog => {
-                    println!("{}", format_about_changelog(&theme));
-                }
-                AboutTopic::Terms => {
-                    println!("{}", format_about_terms(&theme));
-                }
-            }
+            handle_about(topic, &theme);
         }
     }
-
     Ok(())
 }
 
@@ -916,4 +574,401 @@ fn confirm(prompt: &str, default: bool) -> bool {
         return default;
     }
     input == "y" || input == "yes"
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn handle_download_multiple(
+    file: String,
+    output: Option<String>,
+    video_format: Option<String>,
+    audio_format: Option<String>,
+    audio_quality: Option<String>,
+    yes: bool,
+    registry: &PlatformRegistry,
+    queue: &Arc<tokio::sync::Mutex<DownloadQueue>>,
+    reporter: Option<Arc<dyn DownloadReporter>>,
+    theme: &Arc<dyn CliTheme>,
+) -> Result<()> {
+    let content = std::fs::read_to_string(&file)?;
+    let urls: Vec<String> = content
+        .lines()
+        .map(|s| s.trim().to_string())
+        .filter(|s| !s.is_empty())
+        .collect();
+
+    let total = urls.len();
+    let mut failed = 0;
+
+    println!(
+        "{}📥 Starting batch download of {} URLs{}...\n",
+        theme.color_info(),
+        total,
+        theme.color_reset()
+    );
+
+    for (idx, url) in urls.iter().enumerate() {
+        println!("  [{}/{}] Queueing: {}", idx + 1, total, url);
+        if let Err(e) = perform_download(
+            url,
+            output.clone(),
+            None,
+            video_format.clone(),
+            audio_format.clone(),
+            audio_quality.clone(),
+            false,
+            yes,
+            registry,
+            queue,
+            reporter.clone(),
+            theme,
+        )
+        .await
+        {
+            eprintln!(
+                "  {}✗ Error queueing: {}{}",
+                theme.color_error(),
+                e,
+                theme.color_reset()
+            );
+            failed += 1;
+        }
+    }
+
+    println!(
+        "{}",
+        format_batch_summary(total, total - failed, failed, theme)
+    );
+    wait_for_queue(queue).await;
+    Ok(())
+}
+
+async fn handle_info(
+    url: String,
+    registry: &PlatformRegistry,
+    theme: &Arc<dyn CliTheme>,
+) -> Result<()> {
+    let downloader = registry
+        .find_platform(&url)
+        .ok_or_else(|| anyhow::anyhow!("No supported platform found for URL"))?;
+    let platform_name = downloader.name().to_string();
+
+    println!(
+        "{}🔍 Fetching media info...{}\n",
+        theme.color_info(),
+        theme.color_reset()
+    );
+
+    let info = mangofetch_core::core::manager::queue::fetch_and_cache_info(
+        &url,
+        &*downloader,
+        &platform_name,
+    )
+    .await?;
+
+    // Use formatted card output
+    let card = format_info_card(
+        &info.title,
+        &info.author,
+        &info.platform,
+        info.duration_seconds,
+        &format!("{:?}", info.media_type),
+        theme,
+    );
+    println!("{}", card);
+    Ok(())
+}
+
+fn handle_send(file: String, theme: &Arc<dyn CliTheme>) {
+    println!(
+        "{}⚠ P2P Send not yet implemented in CLI. File: {}{}",
+        theme.color_warning(),
+        file,
+        theme.color_reset()
+    );
+}
+
+fn handle_list(
+    active: bool,
+    queued: bool,
+    completed: bool,
+    failed: bool,
+    theme: &Arc<dyn CliTheme>,
+) {
+    let items = recovery::list();
+    let mut filtered = items;
+
+    let any_filter = active || queued || completed || failed;
+
+    if any_filter {
+        filtered.retain(|i| {
+            (active && matches!(i.status, QueueStatus::Active))
+                || (queued && matches!(i.status, QueueStatus::Queued))
+                || (completed && matches!(i.status, QueueStatus::Complete { .. }))
+                || (failed && matches!(i.status, QueueStatus::Error { .. }))
+                || (active && matches!(i.status, QueueStatus::Seeding))
+                || (queued && matches!(i.status, QueueStatus::Paused))
+        });
+    }
+
+    // Convert to displayable format
+    let display_items: Vec<_> = filtered
+        .iter()
+        .map(|i| {
+            let status_str = match &i.status {
+                QueueStatus::Active => "Active".to_string(),
+                QueueStatus::Queued => "Queued".to_string(),
+                QueueStatus::Paused => "Paused".to_string(),
+                QueueStatus::Seeding => "Seeding".to_string(),
+                QueueStatus::Complete { .. } => "Complete".to_string(),
+                QueueStatus::Error { message } => format!("Error: {}", message),
+            };
+            let title = if i.title.len() > 35 {
+                format!("{}...", &i.title[..32])
+            } else {
+                i.title.clone()
+            };
+            (i.id, title, i.platform.clone(), status_str, String::new())
+        })
+        .collect();
+
+    println!("{}", format_queue_list(display_items, theme));
+}
+
+fn handle_clean(finished: bool, failed: bool, logs: bool, theme: &Arc<dyn CliTheme>) {
+    if logs {
+        match mangofetch_core::core::logger::clean_logs() {
+            Ok(count) => {
+                if count > 0 {
+                    println!(
+                        "{}✓ Cleaned {} old log file(s){}",
+                        theme.color_success(),
+                        count,
+                        theme.color_reset()
+                    );
+                } else {
+                    println!(
+                        "{}✓ No old log files to clean{}",
+                        theme.color_success(),
+                        theme.color_reset()
+                    );
+                }
+            }
+            Err(e) => {
+                eprintln!(
+                    "{}✗ Failed to clean logs: {}{}",
+                    theme.color_error(),
+                    e,
+                    theme.color_reset()
+                );
+            }
+        }
+    }
+
+    let items_before = recovery::list().len();
+
+    if finished || failed {
+        eprintln!(
+            "{}ℹ Selective cleaning not yet implemented, clearing all...{}",
+            theme.color_warning(),
+            theme.color_reset()
+        );
+    }
+
+    recovery::clear_all();
+
+    println!("{}", format_clean_summary(items_before, None, theme));
+}
+
+fn handle_config(action: ConfigAction, theme: &Arc<dyn CliTheme>) -> Result<()> {
+    let mut settings = AppSettings::load_from_disk();
+    match action {
+        ConfigAction::Get { key } => {
+            let val = serde_json::to_value(&settings)?;
+            if let Some(v) = get_json_path(&val, &key) {
+                println!(
+                    "{}{}{}  = {}",
+                    theme.color_accent(),
+                    key,
+                    theme.color_reset(),
+                    v
+                );
+            } else {
+                println!(
+                    "{}Key not found: {}{}",
+                    theme.color_warning(),
+                    key,
+                    theme.color_reset()
+                );
+            }
+        }
+
+        ConfigAction::Set { key, value } => {
+            let mut val = serde_json::to_value(&settings)?;
+            if set_json_path(&mut val, &key, &value) {
+                settings = serde_json::from_value(val)?;
+                settings.save_to_disk()?;
+                println!(
+                    "{}✓ Set {}{}  = {}",
+                    theme.color_success(),
+                    key,
+                    theme.color_reset(),
+                    value
+                );
+            } else {
+                println!(
+                    "{}✗ Failed to set key: {}{}",
+                    theme.color_error(),
+                    key,
+                    theme.color_reset()
+                );
+            }
+        }
+
+        ConfigAction::List => {
+            let settings_json = serde_json::to_string_pretty(&settings)?;
+            println!("{}", format_config_display(&settings_json, theme));
+        }
+    }
+    Ok(())
+}
+
+async fn handle_check(reporter: Option<Arc<dyn DownloadReporter>>, theme: &Arc<dyn CliTheme>) {
+    println!(
+        "{}🔍 Checking system dependencies...{}\n",
+        theme.color_info(),
+        theme.color_reset()
+    );
+
+    match mangofetch_core::core::dependencies::ensure_dependencies(false, reporter).await {
+        Ok(deps) => {
+            let yt_dlp_path = deps.ytdlp.as_ref().map(|p| p.to_string_lossy().to_string());
+            let ffmpeg_path = deps
+                .ffmpeg
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string());
+
+            println!(
+                "{}",
+                format_dependency_check(yt_dlp_path.as_deref(), ffmpeg_path.as_deref(), theme)
+            );
+        }
+        Err(e) => println!(
+            "{}❌ Dependency check failed: {}{}",
+            theme.color_error(),
+            e,
+            theme.color_reset()
+        ),
+    }
+}
+
+async fn handle_update(reporter: Option<Arc<dyn DownloadReporter>>, theme: &Arc<dyn CliTheme>) {
+    println!(
+        "{}⬆️  Updating dependencies (yt-dlp, FFmpeg)...{}\n",
+        theme.color_accent(),
+        theme.color_reset()
+    );
+
+    match mangofetch_core::core::dependencies::ensure_dependencies(true, reporter).await {
+        Ok(deps) => {
+            let yt_dlp_path = deps.ytdlp.as_ref().map(|p| p.to_string_lossy().to_string());
+            let ffmpeg_path = deps
+                .ffmpeg
+                .as_ref()
+                .map(|p| p.to_string_lossy().to_string());
+
+            println!(
+                "{}✓ Update complete.{}\n",
+                theme.color_success(),
+                theme.color_reset()
+            );
+            println!(
+                "{}",
+                format_dependency_check(yt_dlp_path.as_deref(), ffmpeg_path.as_deref(), theme)
+            );
+        }
+        Err(e) => println!(
+            "{}❌ Update failed: {}{}",
+            theme.color_error(),
+            e,
+            theme.color_reset()
+        ),
+    }
+}
+
+fn handle_logs(tail: usize, theme: &Arc<dyn CliTheme>) -> Result<()> {
+    let log_dir = mangofetch_core::core::paths::app_data_dir().map(|d| d.join("logs"));
+    if let Some(dir) = log_dir {
+        if !dir.exists() {
+            println!(
+                "{}ℹ No logs found.{}",
+                theme.color_info(),
+                theme.color_reset()
+            );
+            return Ok(());
+        }
+
+        let entries = std::fs::read_dir(&dir)?;
+        let mut files: Vec<_> = entries
+            .flatten()
+            .filter(|e| e.path().extension().is_some_and(|ext| ext == "log"))
+            .collect();
+
+        files.sort_by_key(|e| e.metadata().and_then(|m| m.modified()).ok());
+
+        if let Some(last_file) = files.last() {
+            let path = last_file.path();
+            println!(
+                "{}📋 Last {} lines from:{}  {}\n",
+                theme.color_info(),
+                tail,
+                theme.color_reset(),
+                path.display()
+            );
+
+            let content = std::fs::read_to_string(&path)?;
+            let lines: Vec<_> = content.lines().collect();
+            let start = lines.len().saturating_sub(tail);
+
+            for line in &lines[start..] {
+                println!("  {}", line);
+            }
+        } else {
+            println!(
+                "{}ℹ No log files found in: {}{}",
+                theme.color_info(),
+                dir.display(),
+                theme.color_reset()
+            );
+        }
+    } else {
+        println!(
+            "{}⚠ Could not determine log directory.{}",
+            theme.color_warning(),
+            theme.color_reset()
+        );
+    }
+    Ok(())
+}
+
+fn handle_about(topic: Option<AboutTopic>, theme: &Arc<dyn CliTheme>) {
+    let topic = topic.unwrap_or(AboutTopic::Version);
+    match topic {
+        AboutTopic::Version => {
+            println!(
+                "{}",
+                format_about_info(
+                    env!("CARGO_PKG_VERSION"),
+                    "TropicalDev",
+                    "https://github.com/julesklord/mangofetch-cli",
+                    theme
+                )
+            );
+        }
+        AboutTopic::Changelog => {
+            println!("{}", format_about_changelog(theme));
+        }
+        AboutTopic::Terms => {
+            println!("{}", format_about_terms(theme));
+        }
+    }
 }
