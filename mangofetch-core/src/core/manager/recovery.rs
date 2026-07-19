@@ -45,7 +45,23 @@ fn store() -> &'static Mutex<HashMap<u64, RecoveryItem>> {
     STORE.get_or_init(|| Mutex::new(HashMap::new()))
 }
 
+
+#[cfg(test)]
+thread_local! {
+    static TEST_DIR: std::cell::RefCell<Option<PathBuf>> = std::cell::RefCell::new(None);
+}
+
+#[cfg(test)]
+pub fn set_test_dir(dir: PathBuf) {
+    TEST_DIR.with(|d| *d.borrow_mut() = Some(dir));
+}
+
 fn file_path() -> Option<PathBuf> {
+    #[cfg(test)]
+    if let Some(dir) = TEST_DIR.with(|d| d.borrow().clone()) {
+        return Some(dir.join(RECOVERY_FILE));
+    }
+
     crate::core::paths::app_data_dir().map(|d| d.join(RECOVERY_FILE))
 }
 
@@ -142,7 +158,6 @@ mod tests {
 
     struct TestEnv {
         dir: std::path::PathBuf,
-        old_dir: Option<String>,
     }
 
     impl TestEnv {
@@ -150,20 +165,14 @@ mod tests {
             let id = uuid::Uuid::new_v4();
             let dir = std::env::temp_dir().join(format!("mangofetch_recovery_test_{}", id));
             std::fs::create_dir_all(&dir).unwrap();
-            let old_dir = std::env::var("MANGOFETCH_DATA_DIR").ok();
-            std::env::set_var("MANGOFETCH_DATA_DIR", &dir);
-            Self { dir, old_dir }
+            super::set_test_dir(dir.clone());
+            Self { dir }
         }
     }
 
     impl Drop for TestEnv {
         fn drop(&mut self) {
             let _ = std::fs::remove_dir_all(&self.dir);
-            if let Some(old) = &self.old_dir {
-                std::env::set_var("MANGOFETCH_DATA_DIR", old);
-            } else {
-                std::env::remove_var("MANGOFETCH_DATA_DIR");
-            }
         }
     }
 
@@ -174,7 +183,7 @@ mod tests {
 
     #[test]
     fn test_persist_and_list() {
-        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = TEST_MUTEX.lock().unwrap();
         let _env = TestEnv::new();
         clear_global_store();
 
@@ -209,7 +218,7 @@ mod tests {
 
     #[test]
     fn test_remove() {
-        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = TEST_MUTEX.lock().unwrap();
         let _env = TestEnv::new();
         clear_global_store();
 
@@ -242,7 +251,7 @@ mod tests {
 
     #[test]
     fn test_init_from_disk() {
-        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = TEST_MUTEX.lock().unwrap();
         let _env = TestEnv::new();
         clear_global_store();
 
@@ -277,7 +286,7 @@ mod tests {
 
     #[test]
     fn test_clear_all() {
-        let _lock = TEST_MUTEX.lock().unwrap_or_else(|e| e.into_inner());
+        let _lock = TEST_MUTEX.lock().unwrap();
         let _env = TestEnv::new();
         clear_global_store();
 
