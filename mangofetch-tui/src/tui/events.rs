@@ -392,13 +392,7 @@ async fn handle_confirm_delete(app: &mut App, code: KeyCode) {
     }
 }
 
-async fn handle_normal_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
-    // Ctrl+C always quits
-    if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('c') {
-        app.quit();
-        return;
-    }
-
+fn handle_normal_global_keys(app: &mut App, code: KeyCode) -> bool {
     match code {
         KeyCode::Char('q') | KeyCode::Char('Q') => {
             if let Some(last_time) = app.last_q_press {
@@ -412,62 +406,97 @@ async fn handle_normal_mode(app: &mut App, code: KeyCode, modifiers: KeyModifier
                 app.last_q_press = Some(std::time::Instant::now());
                 app.set_status("Press 'q' again quickly to exit".to_string());
             }
+            true
         }
         KeyCode::Char(':') | KeyCode::Char('/') => {
             app.mode = Mode::Command;
             app.command_buffer.clear();
+            true
         }
-        KeyCode::Char('a') | KeyCode::Char('n') => app.open_add_modal(),
-        KeyCode::Char('?') => app.toggle_help(),
-        KeyCode::Char('l') | KeyCode::Char('L') => app.toggle_layout(),
+        KeyCode::Char('a') | KeyCode::Char('n') => {
+            app.open_add_modal();
+            true
+        }
+        KeyCode::Char('?') => {
+            app.toggle_help();
+            true
+        }
+        KeyCode::Char('l') | KeyCode::Char('L') => {
+            app.toggle_layout();
+            true
+        }
+        _ => false,
+    }
+}
 
-        // Tab navigation
+fn handle_normal_tab_keys(app: &mut App, code: KeyCode) -> bool {
+    match code {
         KeyCode::Tab => {
             if app.active_tab == Tab::Downloads {
                 app.next_category();
             } else {
                 app.next_tab();
             }
+            true
         }
-        KeyCode::BackTab => app.prev_tab(),
+        KeyCode::BackTab => {
+            app.prev_tab();
+            true
+        }
         KeyCode::Char('1') => {
             app.active_tab = Tab::Home;
+            true
         }
         KeyCode::Char('2') => {
             app.active_tab = Tab::Downloads;
             app.refresh_data();
+            true
         }
         KeyCode::Char('3') => {
             app.active_tab = Tab::Settings;
+            true
         }
         KeyCode::Char('4') => {
             app.active_tab = Tab::About;
+            true
         }
         KeyCode::Char('5') => {
             app.active_tab = Tab::Logs;
+            true
         }
+        _ => false,
+    }
+}
 
-        // Navigation
-        KeyCode::Up | KeyCode::Char('k') => match app.active_tab {
-            Tab::Settings => app.prev_setting(),
-            Tab::Logs => app.scroll_logs_up(),
-            Tab::Home => app.prev_home_item(),
-            Tab::About => app.prev_about_item(),
-            _ => app.prev_item(),
-        },
-        KeyCode::Down | KeyCode::Char('j') => match app.active_tab {
-            Tab::Settings => app.next_setting(),
-            Tab::Logs => app.scroll_logs_down(),
-            Tab::Home => app.next_home_item(),
-            Tab::About => app.next_about_item(),
-            _ => app.next_item(),
-        },
+fn handle_normal_nav_keys(app: &mut App, code: KeyCode) -> bool {
+    match code {
+        KeyCode::Up | KeyCode::Char('k') => {
+            match app.active_tab {
+                Tab::Settings => app.prev_setting(),
+                Tab::Logs => app.scroll_logs_up(),
+                Tab::Home => app.prev_home_item(),
+                Tab::About => app.prev_about_item(),
+                _ => app.prev_item(),
+            }
+            true
+        }
+        KeyCode::Down | KeyCode::Char('j') => {
+            match app.active_tab {
+                Tab::Settings => app.next_setting(),
+                Tab::Logs => app.scroll_logs_down(),
+                Tab::Home => app.next_home_item(),
+                Tab::About => app.next_about_item(),
+                _ => app.next_item(),
+            }
+            true
+        }
         KeyCode::Char('G') => {
             if app.active_tab == Tab::Logs {
                 app.scroll_logs_bottom();
             } else if !app.items.is_empty() {
                 app.table_state.select(Some(app.items.len() - 1));
             }
+            true
         }
         KeyCode::Char('g') => {
             if app.active_tab != Tab::Logs {
@@ -475,47 +504,85 @@ async fn handle_normal_mode(app: &mut App, code: KeyCode, modifiers: KeyModifier
             } else {
                 app.log_scroll = 0;
             }
+            true
         }
+        _ => false,
+    }
+}
 
-        // Actions
-        KeyCode::Enter => match app.active_tab {
-            Tab::Settings => app.toggle_setting(),
-            Tab::Home => app.execute_home_action().await,
-            _ => {}
-        },
-        KeyCode::Left | KeyCode::Right => match app.active_tab {
-            Tab::Settings => app.toggle_setting(),
-            Tab::Downloads => {
-                if code == KeyCode::Left {
-                    app.prev_category();
-                } else {
-                    app.next_category();
+async fn handle_normal_action_keys(app: &mut App, code: KeyCode) -> bool {
+    match code {
+        KeyCode::Enter => {
+            match app.active_tab {
+                Tab::Settings => app.toggle_setting(),
+                Tab::Home => app.execute_home_action().await,
+                _ => {}
+            }
+            true
+        }
+        KeyCode::Left | KeyCode::Right => {
+            match app.active_tab {
+                Tab::Settings => app.toggle_setting(),
+                Tab::Downloads => {
+                    if code == KeyCode::Left {
+                        app.prev_category();
+                    } else {
+                        app.next_category();
+                    }
+                }
+                _ => {
+                    if code == KeyCode::Left {
+                        app.prev_tab();
+                    } else {
+                        app.next_tab();
+                    }
                 }
             }
-            _ => {
-                if code == KeyCode::Left {
-                    app.prev_tab();
-                } else {
-                    app.next_tab();
-                }
-            }
-        },
+            true
+        }
         KeyCode::Char('[') => {
             if app.active_tab == Tab::Settings {
                 app.reorder_statusbar_module(true);
             }
+            true
         }
         KeyCode::Char(']') => {
             if app.active_tab == Tab::Settings {
                 app.reorder_statusbar_module(false);
             }
+            true
         }
-        KeyCode::Char('p') => app.pause_selected().await,
-        KeyCode::Char('r') => app.resume_selected().await,
+        KeyCode::Char('p') => {
+            app.pause_selected().await;
+            true
+        }
+        KeyCode::Char('r') => {
+            app.resume_selected().await;
+            true
+        }
         KeyCode::Char('x') | KeyCode::Delete if app.table_state.selected().is_some() => {
             app.mode = Mode::ConfirmDelete;
+            true
         }
-
-        _ => {}
+        _ => false,
     }
+}
+
+async fn handle_normal_mode(app: &mut App, code: KeyCode, modifiers: KeyModifiers) {
+    // Ctrl+C always quits
+    if modifiers.contains(KeyModifiers::CONTROL) && code == KeyCode::Char('c') {
+        app.quit();
+        return;
+    }
+
+    if handle_normal_global_keys(app, code) {
+        return;
+    }
+    if handle_normal_tab_keys(app, code) {
+        return;
+    }
+    if handle_normal_nav_keys(app, code) {
+        return;
+    }
+    handle_normal_action_keys(app, code).await;
 }
