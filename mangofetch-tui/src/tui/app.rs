@@ -619,9 +619,7 @@ impl App {
         self.set_status(format!("Layout: {}", self.layout.to_uppercase()));
     }
 
-    pub fn toggle_setting(&mut self) {
-        let kind = SettingKind::ALL[self.settings_index % SettingKind::ALL.len()];
-
+    fn toggle_appearance_setting(&mut self, kind: SettingKind) {
         match kind {
             SettingKind::TuiTheme => {
                 let next = match self.settings.appearance.tui_theme.as_str() {
@@ -658,15 +656,12 @@ impl App {
                 self.settings.appearance.layout = next.to_string();
                 self.layout = next.to_string();
             }
-            SettingKind::MaxDownloads => {
-                self.settings.advanced.max_concurrent_downloads =
-                    match self.settings.advanced.max_concurrent_downloads {
-                        1 => 2,
-                        2 => 3,
-                        3 => 5,
-                        _ => 1,
-                    };
-            }
+            _ => {}
+        }
+    }
+
+    fn toggle_download_setting(&mut self, kind: SettingKind) {
+        match kind {
             SettingKind::VideoQuality => {
                 self.settings.download.video_quality =
                     match self.settings.download.video_quality.as_str() {
@@ -715,6 +710,25 @@ impl App {
             SettingKind::EmbedThumbnail => {
                 self.settings.download.embed_thumbnail = !self.settings.download.embed_thumbnail;
             }
+            SettingKind::ClipboardDetection => {
+                self.settings.download.clipboard_detection =
+                    !self.settings.download.clipboard_detection;
+            }
+            _ => {}
+        }
+    }
+
+    fn toggle_advanced_setting(&mut self, kind: SettingKind) {
+        match kind {
+            SettingKind::MaxDownloads => {
+                self.settings.advanced.max_concurrent_downloads =
+                    match self.settings.advanced.max_concurrent_downloads {
+                        1 => 2,
+                        2 => 3,
+                        3 => 5,
+                        _ => 1,
+                    };
+            }
             SettingKind::MaxConcurrentSegments => {
                 self.settings.advanced.max_concurrent_segments =
                     match self.settings.advanced.max_concurrent_segments {
@@ -744,16 +758,12 @@ impl App {
                         _ => 0,
                     };
             }
-            SettingKind::ClipboardDetection => {
-                self.settings.download.clipboard_detection =
-                    !self.settings.download.clipboard_detection;
-            }
-            SettingKind::ProxyEnabled => {
-                self.settings.proxy.enabled = !self.settings.proxy.enabled;
-            }
-            SettingKind::PortableMode => {
-                self.settings.portable_mode = !self.settings.portable_mode;
-            }
+            _ => {}
+        }
+    }
+
+    fn toggle_statusbar_setting(&mut self, kind: SettingKind) {
+        match kind {
             SettingKind::StatusbarMode
             | SettingKind::StatusbarTab
             | SettingKind::StatusbarRadar
@@ -779,6 +789,66 @@ impl App {
                     self.statusbar_modules.push(name.to_string());
                 }
                 self.settings.appearance.statusbar_modules = self.statusbar_modules.clone();
+            }
+            _ => {}
+        }
+    }
+
+    fn toggle_general_setting(&mut self, kind: SettingKind) {
+        match kind {
+            SettingKind::ProxyEnabled => {
+                self.settings.proxy.enabled = !self.settings.proxy.enabled;
+            }
+            SettingKind::PortableMode => {
+                self.settings.portable_mode = !self.settings.portable_mode;
+            }
+            _ => {}
+        }
+    }
+
+    pub fn toggle_setting(&mut self) {
+        let kind = SettingKind::ALL[self.settings_index % SettingKind::ALL.len()];
+
+        match kind {
+            SettingKind::TuiTheme
+            | SettingKind::UseNerdFonts
+            | SettingKind::EnableAnimations
+            | SettingKind::NavigationLayout => {
+                self.toggle_appearance_setting(kind);
+            }
+            SettingKind::VideoQuality
+            | SettingKind::AlwaysAskConfirm
+            | SettingKind::OrganizeByPlatform
+            | SettingKind::SkipExisting
+            | SettingKind::DownloadSubtitles
+            | SettingKind::DownloadAttachments
+            | SettingKind::DownloadDescriptions
+            | SettingKind::SponsorBlock
+            | SettingKind::SplitByChapters
+            | SettingKind::EmbedMetadata
+            | SettingKind::EmbedThumbnail
+            | SettingKind::ClipboardDetection => {
+                self.toggle_download_setting(kind);
+            }
+            SettingKind::MaxDownloads
+            | SettingKind::MaxConcurrentSegments
+            | SettingKind::MaxRetries
+            | SettingKind::ConcurrentFragments
+            | SettingKind::StaggerDelay => {
+                self.toggle_advanced_setting(kind);
+            }
+            SettingKind::StatusbarMode
+            | SettingKind::StatusbarTab
+            | SettingKind::StatusbarRadar
+            | SettingKind::StatusbarCpu
+            | SettingKind::StatusbarRam
+            | SettingKind::StatusbarSpeed
+            | SettingKind::StatusbarQueue
+            | SettingKind::StatusbarTime => {
+                self.toggle_statusbar_setting(kind);
+            }
+            SettingKind::ProxyEnabled | SettingKind::PortableMode => {
+                self.toggle_general_setting(kind);
             }
         }
 
