@@ -13,9 +13,9 @@ use std::sync::Arc;
 // ── Entry point ───────────────────────────────────────────────────────────────
 
 pub fn render(f: &mut Frame, app: &mut App) {
-    // Fill background
-    f.render_widget(Block::default().bg(app.theme.background), f.area());
-
+    // ponytail: do NOT fill the frame background — let the terminal's own
+    // background (incl. transparency) show through in every theme. Only TUI
+    // elements paint their own surfaces; the canvas stays transparent.
     if matches!(app.state, AppState::Splash) {
         render_splash(f, app);
         return;
@@ -113,10 +113,9 @@ fn render_splash(f: &mut Frame, app: &App) {
         height: splash_h.min(area.height),
     };
 
-    // Render subtle background container (no border)
-    let block = Block::default().borders(Borders::NONE).bg(t.background);
-    let inner = block.inner(centered_splash);
-    f.render_widget(block, centered_splash);
+    // ponytail: no opaque backdrop for the splash — the mango floats over
+    // the terminal's own background so transparency is preserved per theme.
+    let inner = centered_splash;
 
     // Split inner area (height 16)
     let chunks = Layout::vertical([
@@ -642,7 +641,7 @@ fn render_add_modal(f: &mut Frame, app: &App) {
             .borders(Borders::ALL)
             .title(title)
             .border_style(Style::new().fg(t.accent))
-            .bg(t.background),
+            .bg(t.surface),
         area,
     );
 
@@ -1345,7 +1344,7 @@ fn render_add_confirm_modal(f: &mut Frame, app: &App) {
         .title(preview_title)
         .title_style(Style::new().fg(t.accent).bold())
         .border_style(Style::new().fg(t.surface))
-        .bg(t.background);
+        .bg(t.surface);
     f.render_widget(block, area);
 
     let chunks = Layout::vertical([

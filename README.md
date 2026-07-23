@@ -243,6 +243,7 @@ Submit pull requests for features or fixes. Open an issue first for major change
 ## License
 
 <p align="center">
-  Built by <a href="https://github.com/julesklord">Jules</a> and Claude.<br>
+  Built by <a href="https://github.com/julesklord">Jules</a>, 
+  <a href="https://github.com/tonhowtf">tonhowtf</a> (omniget) and Agy.<br>
   Released under the GPL-3.0 License.
 </p>
